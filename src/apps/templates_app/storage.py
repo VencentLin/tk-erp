@@ -1,8 +1,6 @@
-from storages.backends.s3boto3 import S3Boto3Storage
+from django.core.files.storage import FileSystemStorage
 
 
-class TemplateImageStorage(S3Boto3Storage):
-    """T恤模板图片专用存储"""
+class TemplateImageStorage(FileSystemStorage):
+    """T恤模板图片专用存储（本地文件系统）"""
     location = 'templates'
-    file_overwrite = False
-    default_acl = None

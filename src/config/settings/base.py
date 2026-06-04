@@ -9,6 +9,7 @@ DEBUG = config('DJANGO_DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 INSTALLED_APPS = [
+    'jazzmin',  # 必须在 django.contrib.admin 之前
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -116,3 +117,80 @@ OLLAMA_MODEL = config('OLLAMA_MODEL', default='qwen2.5:14b')
 DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY', default='')
 DEEPSEEK_BASE_URL = config('DEEPSEEK_BASE_URL', default='https://ark.cn-beijing.volces.com/api/coding/v3')
 DEEPSEEK_MODEL = config('DEEPSEEK_MODEL', default='deepseek-v4-flash')
+
+# Jazzmin Admin UI
+JAZZMIN_SETTINGS = {
+    'site_title': 'TK-ERP 管理系统',
+    'site_header': 'TK-ERP',
+    'site_brand': 'TK-ERP 印花管理',
+    'welcome_sign': '欢迎使用 TK-ERP 印花T恤 AI生成系统',
+    'copyright': 'TK-ERP',
+    'search_model': ['auth.User', 'products.Product'],
+    'topmenu_links': [
+        {'name': '首页', 'url': 'admin:index', 'permissions': ['auth.view_user']},
+        {'name': 'GitHub', 'url': 'https://github.com/VencentLin/tk-erp', 'new_window': True},
+    ],
+    'show_sidebar': True,
+    'navigation_expanded': True,
+    'order_with_respect_to': [
+        'auth',
+        'apps.core',
+        'apps.patterns',
+        'apps.templates_app',
+        'apps.products',
+        'apps.generation',
+        'apps.export_app',
+        'apps.accounts',
+        'django_celery_results',
+    ],
+    'icons': {
+        'auth': 'fas fa-users-cog',
+        'auth.User': 'fas fa-user',
+        'auth.Group': 'fas fa-users',
+        'apps.core.Country': 'fas fa-globe',
+        'apps.core.Store': 'fas fa-store',
+        'apps.patterns.Pattern': 'fas fa-palette',
+        'apps.templates_app.TShirtTemplate': 'fas fa-tshirt',
+        'apps.products.Product': 'fas fa-box',
+        'apps.products.GenerationLog': 'fas fa-history',
+        'apps.accounts.UserProfile': 'fas fa-id-card',
+        'django_celery_results.TaskResult': 'fas fa-tasks',
+    },
+    'default_icon_parents': 'fas fa-chevron-circle-right',
+    'default_icon_children': 'fas fa-circle',
+    'changeform_format': 'horizontal_tabs',
+    'language_chooser': True,
+    'show_ui_builder': True,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'navbar_small_text': False,
+    'footer_small_text': False,
+    'body_small_text': False,
+    'brand_small_text': False,
+    'brand_colour': 'navbar-dark',
+    'accent': 'accent-primary',
+    'navbar': 'navbar-white navbar-light',
+    'no_navbar_border': False,
+    'navbar_fixed': True,
+    'layout_boxed': False,
+    'footer_fixed': False,
+    'sidebar_fixed': True,
+    'sidebar': 'sidebar-dark-primary',
+    'sidebar_nav_small_text': False,
+    'sidebar_disable_expand': False,
+    'sidebar_nav_child_indent': True,
+    'sidebar_nav_compact_style': False,
+    'sidebar_nav_legacy_style': False,
+    'sidebar_nav_flat_style': False,
+    'theme': 'default',
+    'dark_mode_theme': None,
+    'button_classes': {
+        'primary': 'btn-primary',
+        'secondary': 'btn-secondary',
+        'info': 'btn-info',
+        'warning': 'btn-warning',
+        'danger': 'btn-danger',
+        'success': 'btn-success',
+    },
+}

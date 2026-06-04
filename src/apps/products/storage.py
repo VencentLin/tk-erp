@@ -1,7 +1,6 @@
-from storages.backends.s3boto3 import S3Boto3Storage
+from django.core.files.storage import FileSystemStorage
 
 
-class ProductImageStorage(S3Boto3Storage):
+class ProductImageStorage(FileSystemStorage):
+    """产品图片专用存储（本地文件系统）"""
     location = 'products'
-    file_overwrite = False
-    default_acl = None
