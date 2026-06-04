@@ -1,0 +1,92 @@
+{% extends "dashboard/base.html" %}
+{% block title %}产品库 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <h5>📦 产品库</h5>
+    <button class="btn btn-success rounded-pill" onclick="exportSelected()">
+        <i class="bi bi-download"></i> 导出选中
+    </button>
+</div>
+
+<div class="card-table mb-4">
+    <div class="card-header">
+        <div class="filter-bar">
+            <select name="country" class="form-select form-select-sm" style="width:auto;" onchange="filter()">
+                <option value="">全部国家</option>
+                {% for c in countries %}
+                <option value="{{ c.code }}" {% if selected_country == c.code %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="filter()">
+                <option value="">全部状态</option>
+                {% for s in statuses %}
+                <option value="{{ s.0 }}" {% if selected_status == s.0 %}selected{% endif %}>{{ s.1 }}</option>
+                {% endfor %}
+            </select>
+            <span class="text-muted small ms-2">共 {{ products|length }} 个产品</span>
+        </div>
+    </div>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th style="width:40px;"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
+                <th style="width:70px;">预览</th>
+                <th>标题</th>
+                <th>国家</th>
+                <th>状态</th>
+                <th>时间</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr>
+                <td><input type="checkbox" class="product-check" value="{{ p.id }}"></td>
+                <td>
+                    {% if p.print_image %}
+                    <img src="{{ p.print_image.url }}" class="img-thumb">
+                    {% elif p.mockup_image %}
+                    <img src="{{ p.mockup_image.url }}" class="img-thumb">
+                    {% else %}
+                    <div style="width:60px;height:60px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ccc;"><i class="bi bi-image"></i></div>
+                    {% endif %}
+                </td>
+                <td>
+                    <strong>{{ p.title|default:'待生成'|truncatechars:50 }}</strong>
+                    {% if p.description %}<br><small class="text-muted">{{ p.description|truncatechars:80 }}</small>{% endif %}
+                </td>
+                <td><span class="badge bg-light text-dark">{{ p.country.name }}</span></td>
+                <td><span class="badge-status status-{{ p.status }}">{{ p.get_status_display }}</span></td>
+                <td><small class="text-muted">{{ p.created_at|date:"m-d H:i" }}</small></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center py-5">
+                <i class="bi bi-inbox" style="font-size:48px; color:#ccc;"></i>
+                <p class="text-muted mt-2">暂无产品数据</p>
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filter() {
+    const c = document.querySelector('select[name="country"]').value;
+    const s = document.querySelector('select[name="status"]').value;
+    let url = '{% url "product_list" %}?';
+    if (c) url += 'country=' + c + '&';
+    if (s) url += 'status=' + s;
+    window.location = url;
+}
+function toggleAll(el) {
+    document.querySelectorAll('.product-check').forEach(cb => cb.checked = el.checked);
+}
+function exportSelected() {
+    const ids = Array.from(document.querySelectorAll('.product-check:checked')).map(cb => cb.value);
+    if (ids.length === 0) { alert('请先选择要导出的产品'); return; }
+    window.location = '{% url "product_export" %}?ids=' + ids.join('&ids=');
+}
+</script>
+{% endblock %}

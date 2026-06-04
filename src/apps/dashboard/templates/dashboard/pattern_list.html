@@ -1,0 +1,37 @@
+{% extends "dashboard/base.html" %}
+{% block title %}印花管理 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <h5>🖼️ 印花管理</h5>
+    <div>
+        <a href="{% url 'pattern_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> 上传印花</a>
+        <a href="{% url 'pattern_batch' %}" class="btn btn-success rounded-pill"><i class="bi bi-upload"></i> 批量导入</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for p in patterns %}
+    <div class="col-xxl-2 col-xl-3 col-md-4 col-sm-6">
+        <div class="card border-0 shadow-sm" style="border-radius:12px; overflow:hidden;">
+            {% if p.image %}
+            <img src="{{ p.image.url }}" style="height:200px; object-fit:cover; cursor:pointer;"
+                 onclick="this.style.position='fixed';this.style.top='50%';this.style.left='50%';this.style.transform='translate(-50%,-50%)';this.style.maxHeight='90vh';this.style.maxWidth='90vw';this.style.width='auto';this.style.height='auto';this.style.zIndex='9999';this.style.borderRadius='16px';this.style.boxShadow='0 20px 60px rgba(0,0,0,.5)';this.onclick=function(){this.style.cssText='height:200px;object-fit:cover;cursor:pointer;';}}">
+            {% else %}
+            <div style="height:200px; background:#f5f5f5; display:flex; align-items:center; justify-content:center; color:#ccc;"><i class="bi bi-image" style="font-size:48px;"></i></div>
+            {% endif %}
+            <div class="card-body p-2">
+                <small class="text-muted">#{{ p.id }} · {{ p.get_source_type_display }}</small>
+                {% if p.note %}<p class="mb-0 small text-truncate">{{ p.note }}</p>{% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <i class="bi bi-inbox" style="font-size:64px; color:#ccc;"></i>
+        <p class="text-muted mt-3">还没有印花</p>
+        <a href="{% url 'pattern_upload' %}" class="btn btn-primary rounded-pill">上传第一张印花</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

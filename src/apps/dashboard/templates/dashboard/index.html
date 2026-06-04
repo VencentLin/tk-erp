@@ -1,0 +1,100 @@
+{% extends "dashboard/base.html" %}
+{% block title %}工作台 - TK-ERP{% endblock %}
+
+{% block content %}
+<h4 class="mb-4">👋 欢迎回来，{{ request.user.username }}</h4>
+
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+            <div class="icon" style="background:#ede9fe;"><i class="bi bi-palette" style="color:#7c3aed;"></i></div>
+            <div>
+                <div class="value">{{ pattern_count }}</div>
+                <div class="label">原始印花</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+            <div class="icon" style="background:#dbeafe;"><i class="bi bi-tshirt" style="color:#2563eb;"></i></div>
+            <div>
+                <div class="value">{{ template_count }}</div>
+                <div class="label">T恤模板</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+            <div class="icon" style="background:#d1fae5;"><i class="bi bi-box-seam" style="color:#059669;"></i></div>
+            <div>
+                <div class="value">{{ completed_count }}/{{ product_count }}</div>
+                <div class="label">已完成/总产品</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+            <div class="icon" style="background:#fef3c7;"><i class="bi bi-globe" style="color:#d97706;"></i></div>
+            <div>
+                <div class="value">{{ countries|length }}</div>
+                <div class="label">运营国家</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card-table">
+            <div class="card-header">
+                <h6>🖼️ 最新印花</h6>
+                <a href="{% url 'pattern_list' %}" class="btn btn-sm btn-outline-primary rounded-pill">查看全部</a>
+            </div>
+            <table class="table">
+                <tbody>
+                    {% for p in recent_patterns %}
+                    <tr>
+                        <td style="width:60px;">
+                            {% if p.image %}
+                            <img src="{{ p.image.url }}" class="img-thumb">
+                            {% endif %}
+                        </td>
+                        <td>{{ p.note|default:'无备注'|truncatechars:30 }}</td>
+                        <td><span class="badge bg-light text-dark">{{ p.get_source_type_display }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-3">还没有印花，<a href="{% url 'pattern_upload' %}">上传</a></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card-table">
+            <div class="card-header">
+                <h6>📦 最新产品</h6>
+                <a href="{% url 'product_list' %}" class="btn btn-sm btn-outline-primary rounded-pill">查看全部</a>
+            </div>
+            <table class="table">
+                <tbody>
+                    {% for p in recent_products %}
+                    <tr>
+                        <td style="width:60px;">
+                            {% if p.print_image %}
+                            <img src="{{ p.print_image.url }}" class="img-thumb">
+                            {% elif p.mockup_image %}
+                            <img src="{{ p.mockup_image.url }}" class="img-thumb">
+                            {% endif %}
+                        </td>
+                        <td>{{ p.title|default:'待生成'|truncatechars:35 }}</td>
+                        <td><span class="badge-status status-{{ p.status }}">{{ p.get_status_display }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-3">暂无产品</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

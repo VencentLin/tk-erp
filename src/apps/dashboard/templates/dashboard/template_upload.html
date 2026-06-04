@@ -1,0 +1,54 @@
+{% extends "dashboard/base.html" %}
+{% block title %}上传模板 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <h5>👕 上传T恤模板</h5>
+    <a href="{% url 'template_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回列表</a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="card border-0 shadow-sm" style="border-radius:12px;">
+                <div class="card-body p-4">
+                    <label class="upload-zone mb-4" style="display:block;">
+                        <input type="file" name="image" accept="image/*" style="display:none;" id="fileInput">
+                        <i class="bi bi-tshirt" style="font-size:48px; color:#667eea;"></i>
+                        <p class="mt-3 mb-1"><strong>点击上传T恤底图</strong></p>
+                        <small class="text-muted">建议 1024x1024 以上 PNG 格式</small>
+                    </label>
+
+                    <div class="mb-3">
+                        <label class="form-label">模板名称</label>
+                        <input type="text" name="name" class="form-control" placeholder="如：白色基础款圆领" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">T恤颜色</label>
+                        <select name="color" class="form-select">
+                            <option value="white">白色</option>
+                            <option value="black">黑色</option>
+                            <option value="gray">灰色</option>
+                            <option value="navy">深蓝</option>
+                            <option value="red">红色</option>
+                            <option value="other">其他颜色</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg rounded-pill w-100">
+                        <i class="bi bi-check-lg"></i> 上传模板
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('fileInput').addEventListener('change', function() {
+    this.parentElement.querySelector('p strong').textContent = this.files[0]?.name || '点击上传T恤底图';
+});
+</script>
+{% endblock %}

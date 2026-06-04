@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'apps.products',
     'apps.generation',
     'apps.export_app',
+    'apps.dashboard',
 ]
 
 MIDDLEWARE = [

@@ -1,0 +1,32 @@
+{% extends "dashboard/base.html" %}
+{% block title %}T恤模板 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar">
+    <h5>👕 T恤模板管理</h5>
+    <a href="{% url 'template_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> 上传模板</a>
+</div>
+
+<div class="row g-3">
+    {% for t in templates %}
+    <div class="col-lg-3 col-md-4 col-sm-6">
+        <div class="card border-0 shadow-sm" style="border-radius:12px; overflow:hidden;">
+            {% if t.image %}
+            <img src="{{ t.image.url }}" style="height:250px; object-fit:cover;">
+            {% endif %}
+            <div class="card-body">
+                <h6 class="card-title">{{ t.name }}</h6>
+                <span class="badge bg-light text-dark">{{ t.get_color_display }}</span>
+                <small class="text-muted d-block mt-1">{{ t.created_at|date:"Y-m-d" }}</small>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <i class="bi bi-tshirt" style="font-size:64px; color:#ccc;"></i>
+        <p class="text-muted mt-3">还没有模板</p>
+        <a href="{% url 'template_upload' %}" class="btn btn-primary rounded-pill">上传第一个模板</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
