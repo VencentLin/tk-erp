@@ -1,0 +1,65 @@
+{% extends "dashboard/base.html" %}
+{% block title %}用户管理 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar"><h5>👥 用户管理</h5>
+    <button class="btn btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#userModal"><i class="bi bi-plus-lg"></i> 添加用户</button>
+</div>
+
+<div class="card-table">
+    <table class="table table-hover">
+        <thead><tr><th>用户名</th><th>角色</th><th>创建时间</th><th style="width:100px;"></th></tr></thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td><strong>{{ u.username }}</strong>{% if u.is_superuser %} <span class="badge bg-warning">超级管理员</span>{% endif %}</td>
+                <td><span class="badge bg-light text-dark">{{ u.profile.get_role_display }}</span></td>
+                <td><small class="text-muted">{{ u.date_joined|date:"Y-m-d" }}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="editUser({{ u.id }},'{{ u.username }}','{{ u.profile.role }}')"><i class="bi bi-pencil"></i></button>
+                    {% if u.id != request.user.id %}
+                    <a href="{% url 'user_delete' u.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除？')"><i class="bi bi-trash"></i></a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content" style="border-radius:16px;">
+        <form method="post" action="{% url 'user_save' %}">{% csrf_token %}
+            <input type="hidden" name="id" id="uid">
+            <div class="modal-header"><h5 class="modal-title" id="uTitle">添加用户</h5></div>
+            <div class="modal-body">
+                <div class="mb-3"><label class="form-label">用户名</label><input name="username" id="uname" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label">密码</label><input name="password" type="password" class="form-control" placeholder="留空则不改"></div>
+                <div class="mb-3"><label class="form-label">角色</label>
+                    <select name="role" id="urole" class="form-select">
+                        <option value="admin">管理员</option>
+                        <option value="country_lead">国家负责人</option>
+                        <option value="operator">操作员</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer"><button type="submit" class="btn btn-primary rounded-pill">保存</button></div>
+        </form>
+    </div></div>
+</div>
+
+<script>
+function editUser(id, username, role) {
+    document.getElementById('uid').value = id;
+    document.getElementById('uname').value = username;
+    document.getElementById('urole').value = role;
+    document.getElementById('uTitle').textContent = '编辑用户';
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+}
+document.getElementById('userModal').addEventListener('hidden.bs.modal', function(){
+    document.getElementById('uid').value = '';
+    document.getElementById('uname').value = '';
+    document.getElementById('uTitle').textContent = '添加用户';
+});
+</script>
+{% endblock %}

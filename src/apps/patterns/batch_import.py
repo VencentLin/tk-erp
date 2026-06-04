@@ -55,8 +55,8 @@ def detect_source_type(image: Image.Image) -> str:
 
     transparent_ratio = transparent_count / max(1, (total_pixels / (sample_step * sample_step)))
 
-    # 如果超过 15% 像素是透明的，判定为干净印花
-    if transparent_ratio > 0.15:
+    # 如果超过 40% 像素是透明的，判定为干净印花（提高阈值避免误判）
+    if transparent_ratio > 0.40:
         return 'clean_print'
 
     # 检测肤色（简单启发：大面积的中间色调橙/粉色区域）

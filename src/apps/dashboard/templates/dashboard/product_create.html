@@ -13,8 +13,8 @@
                     <h6 class="mb-3">🌏 选择国家</h6>
                     {% for c in countries %}
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="radio" name="country" value="{{ c.code }}" id="country_{{ c.code }}" required>
-                        <label class="form-check-label" for="country_{{ c.code }}">{{ c.name }}</label>
+                        <input class="form-check-input" type="radio" name="country" value="{{ c.code }}" id="ct_{{ c.code }}" required>
+                        <label class="form-check-label" for="ct_{{ c.code }}">{{ c.name }}</label>
                     </div>
                     {% endfor %}
                 </div>
@@ -24,17 +24,16 @@
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm" style="border-radius:12px;">
                 <div class="card-body">
-                    <h6 class="mb-3">👕 选择模板</h6>
+                    <h6 class="mb-3">👕 选择模板（可多选=多SKU）</h6>
                     {% for t in templates %}
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="radio" name="template" value="{{ t.id }}" id="tpl_{{ t.id }}" required>
+                        <input class="form-check-input" type="checkbox" name="templates" value="{{ t.id }}" id="tpl_{{ t.id }}">
                         <label class="form-check-label" for="tpl_{{ t.id }}">
                             {{ t.name }}
-                            {% if t.image %}<br><img src="{{ t.image.url }}" style="width:60px; height:60px; object-fit:cover; border-radius:6px; margin-top:4px;">{% endif %}
+                            <span class="badge bg-light text-dark">{{ t.get_color_display }}</span>
+                            {% if t.image %}<br><img src="{{ t.image.url }}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin-top:4px;">{% endif %}
                         </label>
                     </div>
-                    {% empty %}
-                    <p class="text-muted">暂无模板，<a href="{% url 'template_upload' %}">去上传</a></p>
                     {% endfor %}
                 </div>
             </div>
@@ -44,32 +43,36 @@
             <div class="card border-0 shadow-sm" style="border-radius:12px;">
                 <div class="card-body">
                     <h6 class="mb-3">🚀 动作</h6>
-                    <div class="form-check mb-2"><input class="form-check-input" type="radio" name="action" value="create" id="act_create" checked><label class="form-check-label" for="act_create">仅创建产品（稍后手动生成）</label></div>
-                    <div class="form-check mb-2"><input class="form-check-input" type="radio" name="action" value="generate" id="act_gen"><label class="form-check-label" for="act_gen">创建并立即生成（需ComfyUI运行）</label></div>
+                    <div class="form-check mb-2"><input class="form-check-input" type="radio" name="action" value="create" id="act_create" checked><label class="form-check-label" for="act_create">仅创建（稍后生成）</label></div>
+                    <div class="form-check mb-2"><input class="form-check-input" type="radio" name="action" value="generate" id="act_gen"><label class="form-check-label" for="act_gen">创建并立即生成</label></div>
+                    <hr>
+                    <small class="text-muted">💡 选多个模板=多个颜色SKU，如黑+白=同款两色</small>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="card border-0 shadow-sm mt-3" style="border-radius:12px;">
-        <div class="card-header"><h6 class="mb-0">🖼️ 选择印花 <small class="text-muted">（可多选）</small></h6></div>
+        <div class="card-header"><h6 class="mb-0">🖼️ 选择印花 <small class="text-muted">（可多选，每张印花=一个产品）</small></h6></div>
         <div class="card-body">
             <div class="row g-2">
                 {% for p in patterns %}
                 <div class="col-xxl-2 col-xl-3 col-md-4 col-sm-6">
-                    <div class="card border-0 h-100 pattern-card" style="cursor:pointer; border-radius:10px; overflow:hidden; transition:all .2s;" data-pid="{{ p.id }}">
+                    <div class="card border-0 h-100 pattern-card" style="cursor:pointer;border-radius:10px;overflow:hidden;transition:all .2s;" data-pid="{{ p.id }}">
                         {% if p.image %}
-                        <img src="{{ p.image.url }}" style="height:160px; object-fit:cover; pointer-events:none;">
+                        <img src="{{ p.image.url }}" style="height:160px;object-fit:cover;pointer-events:none;">
+                        {% else %}
+                        <div style="height:160px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;pointer-events:none;"><i class="bi bi-image" style="font-size:48px;color:#ccc;"></i></div>
                         {% endif %}
                         <div class="card-body p-2 text-center small" style="pointer-events:none;">
-                            <span class="badge bg-light text-dark">{{ p.get_source_type_display }}</span>
+                            <span class="badge bg-light text-dark">{% if p.source_type %}{{ p.get_source_type_display }}{% else %}未分类{% endif %}</span>
                             {% if p.note %}<br><small class="text-muted">{{ p.note|truncatechars:20 }}</small>{% endif %}
                         </div>
                         <input type="checkbox" name="patterns" value="{{ p.id }}" style="display:none;">
                     </div>
                 </div>
                 {% empty %}
-                <div class="col-12 text-center py-4"><p class="text-muted">还没有印花，<a href="{% url 'pattern_upload' %}">去上传</a></p></div>
+                <div class="col-12 text-center py-4"><p class="text-muted">还没有印花</p></div>
                 {% endfor %}
             </div>
         </div>
@@ -81,12 +84,7 @@
 </form>
 
 <style>
-.pattern-card.selected {
-    outline: 3px solid #667eea;
-    outline-offset: -3px;
-    transform: scale(1.03);
-    box-shadow: 0 6px 20px rgba(0,0,0,.2);
-}
+.pattern-card.selected { outline: 3px solid #667eea; outline-offset: -3px; transform: scale(1.03); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
 </style>
 <script>
 document.querySelectorAll('.pattern-card').forEach(card => {

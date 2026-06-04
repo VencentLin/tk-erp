@@ -12,6 +12,11 @@ urlpatterns = [
     path('stores/save/', views.store_save, name='store_save'),
     path('stores/<int:sid>/delete/', views.store_delete, name='store_delete'),
 
+    # Users
+    path('users/', views.user_list, name='user_list'),
+    path('users/save/', views.user_save, name='user_save'),
+    path('users/<int:uid>/delete/', views.user_delete, name='user_delete'),
+
     # Pattern
     path('patterns/', views.pattern_list, name='pattern_list'),
     path('patterns/upload/', views.pattern_upload, name='pattern_upload'),

@@ -2,8 +2,7 @@
 {% block title %}产品库 - TK-ERP{% endblock %}
 
 {% block content %}
-<div class="topbar">
-    <h5>📦 产品库</h5>
+<div class="topbar"><h5>📦 产品库</h5>
     <div>
         <a href="{% url 'product_generate_all' %}" class="btn btn-warning rounded-pill"><i class="bi bi-lightning"></i> 生成待处理</a>
         <button class="btn btn-success rounded-pill" onclick="exportSelected()"><i class="bi bi-download"></i> 导出选中</button>
@@ -15,56 +14,47 @@
         <div class="filter-bar">
             <select name="country" class="form-select form-select-sm" style="width:auto;" onchange="filter()">
                 <option value="">全部国家</option>
-                {% for c in countries %}
-                <option value="{{ c.code }}" {% if selected_country == c.code %}selected{% endif %}>{{ c.name }}</option>
-                {% endfor %}
+                {% for c in countries %}<option value="{{ c.code }}" {% if selected_country == c.code %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
             </select>
             <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="filter()">
                 <option value="">全部状态</option>
-                {% for s in statuses %}
-                <option value="{{ s.0 }}" {% if selected_status == s.0 %}selected{% endif %}>{{ s.1 }}</option>
-                {% endfor %}
+                {% for s in statuses %}<option value="{{ s.0 }}" {% if selected_status == s.0 %}selected{% endif %}>{{ s.1 }}</option>{% endfor %}
             </select>
             <span class="text-muted small ms-2">共 {{ products|length }} 个产品</span>
         </div>
     </div>
     <table class="table table-hover">
-        <thead>
-            <tr>
-                <th style="width:40px;"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
-                <th style="width:70px;">预览</th>
-                <th>标题</th>
-                <th>国家</th>
-                <th>状态</th>
-                <th>时间</th>
-            </tr>
-        </thead>
+        <thead><tr><th style="width:40px;"><input type="checkbox" id="selectAll" onchange="document.querySelectorAll('.product-check').forEach(cb=>cb.checked=this.checked)"></th><th style="width:70px;">预览</th><th>标题</th><th>SKU</th><th>国家</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
             {% for p in products %}
             <tr>
                 <td><input type="checkbox" class="product-check" value="{{ p.id }}"></td>
                 <td>
-                    {% if p.print_image %}
+                    {% with sku=p.primary_sku %}
+                    {% if sku and sku.mockup_image %}
+                    <img src="{{ sku.mockup_image.url }}" class="img-thumb">
+                    {% elif p.print_image %}
                     <img src="{{ p.print_image.url }}" class="img-thumb">
-                    {% elif p.mockup_image %}
-                    <img src="{{ p.mockup_image.url }}" class="img-thumb">
                     {% else %}
                     <div style="width:60px;height:60px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ccc;"><i class="bi bi-image"></i></div>
                     {% endif %}
+                    {% endwith %}
                 </td>
+                <td><strong>{{ p.title|default:'待生成'|truncatechars:40 }}</strong></td>
                 <td>
-                    <strong>{{ p.title|default:'待生成'|truncatechars:50 }}</strong>
-                    {% if p.description %}<br><small class="text-muted">{{ p.description|truncatechars:80 }}</small>{% endif %}
+                    {% for sku in p.skus.all %}
+                    <span class="badge bg-light text-dark me-1">{{ sku.template.name }}</span>
+                    {% endfor %}
                 </td>
                 <td><span class="badge bg-light text-dark">{{ p.country.name }}</span></td>
                 <td><span class="badge-status status-{{ p.status }}">{{ p.get_status_display }}</span></td>
-                <td><small class="text-muted">{{ p.created_at|date:"m-d H:i" }}</small></td>
+                <td>
+                    <a href="{% url 'product_edit' p.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                    <a href="{% url 'product_delete' p.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除？')"><i class="bi bi-trash"></i></a>
+                </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" class="text-center py-5">
-                <i class="bi bi-inbox" style="font-size:48px; color:#ccc;"></i>
-                <p class="text-muted mt-2">暂无产品数据</p>
-            </td></tr>
+            <tr><td colspan="7" class="text-center py-5"><i class="bi bi-inbox" style="font-size:48px;color:#ccc;"></i><p class="text-muted mt-2">暂无产品</p></td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -81,12 +71,9 @@ function filter() {
     if (s) url += 'status=' + s;
     window.location = url;
 }
-function toggleAll(el) {
-    document.querySelectorAll('.product-check').forEach(cb => cb.checked = el.checked);
-}
 function exportSelected() {
     const ids = Array.from(document.querySelectorAll('.product-check:checked')).map(cb => cb.value);
-    if (ids.length === 0) { alert('请先选择要导出的产品'); return; }
+    if (ids.length === 0) { alert('请先选择产品'); return; }
     window.location = '{% url "product_export" %}?ids=' + ids.join('&ids=');
 }
 </script>

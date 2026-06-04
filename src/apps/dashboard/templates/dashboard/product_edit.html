@@ -2,28 +2,53 @@
 {% block title %}编辑产品 - TK-ERP{% endblock %}
 
 {% block content %}
-<div class="topbar"><h5>✏️ 编辑产品 #{{ product.id }}</h5><a href="{% url 'product_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
+<div class="topbar"><h5>✏️ 编辑产品 #{{ product.id }}</h5>
+    <div>
+        <a href="{% url 'product_regenerate' product.id %}" class="btn btn-warning rounded-pill"><i class="bi bi-arrow-repeat"></i> 重新生成</a>
+        <a href="{% url 'product_delete' product.id %}" class="btn btn-danger rounded-pill" onclick="return confirm('确定删除？')"><i class="bi bi-trash"></i> 删除</a>
+        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a>
+    </div>
+</div>
 
 <div class="row g-4">
     <div class="col-lg-8">
-        <form method="post">
-            {% csrf_token %}
+        <form method="post">{% csrf_token %}
+            <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
+                <div class="card-body p-4">
+                    <h6 class="mb-3">🖼️ AI 生成的印花</h6>
+                    {% if product.print_image %}
+                    <img src="{{ product.print_image.url }}" style="max-width:100%;max-height:400px;border-radius:8px;">
+                    {% else %}<p class="text-muted">印花尚未生成</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
+                <div class="card-body p-4">
+                    <h6 class="mb-3">👕 SKU 效果图</h6>
+                    <div class="row g-3">
+                        {% for sku in product.skus.all %}
+                        <div class="col-md-6">
+                            <div class="card" style="border-radius:10px;">
+                                <div class="card-header small">
+                                    <strong>SKU #{{ sku.id }}</strong> — {{ sku.template.name }} ({{ sku.template.get_color_display }})
+                                </div>
+                                <div class="card-body p-2 text-center">
+                                    {% if sku.mockup_image %}
+                                    <img src="{{ sku.mockup_image.url }}" style="max-width:100%;max-height:250px;border-radius:8px;">
+                                    {% else %}
+                                    <div style="height:150px;display:flex;align-items:center;justify-content:center;color:#ccc;"><i class="bi bi-image" style="font-size:48px;"></i></div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
             <div class="card border-0 shadow-sm" style="border-radius:12px;">
                 <div class="card-body p-4">
-                    <div class="row g-3">
-                        <div class="col-6">
-                            {% if product.print_image %}
-                            <label class="form-label">印花图</label>
-                            <img src="{{ product.print_image.url }}" style="width:100%; max-height:300px; object-fit:contain; border-radius:8px; display:block;">
-                            {% endif %}
-                        </div>
-                        <div class="col-6">
-                            {% if product.mockup_image %}
-                            <label class="form-label">效果图</label>
-                            <img src="{{ product.mockup_image.url }}" style="width:100%; max-height:300px; object-fit:contain; border-radius:8px; display:block;">
-                            {% endif %}
-                        </div>
-                    </div>
+                    <h6 class="mb-3">📝 商品信息</h6>
                     <div class="mb-3"><label class="form-label">标题</label><input name="title" value="{{ product.title }}" class="form-control"></div>
                     <div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="3">{{ product.description }}</textarea></div>
                     <div class="mb-3"><label class="form-label">尺码</label><input name="size_info" value="{{ product.size_info }}" class="form-control"></div>
@@ -36,20 +61,20 @@
                     </div>
                 </div>
                 <div class="card-footer bg-transparent text-end">
-                    <button type="submit" class="btn btn-primary rounded-pill">保存</button>
-                    <a href="{% url 'product_regenerate' product.id %}" class="btn btn-warning rounded-pill"><i class="bi bi-arrow-repeat"></i> 重新生成</a>
+                    <button type="submit" class="btn btn-primary rounded-pill">保存修改</button>
                 </div>
             </div>
         </form>
     </div>
+
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
             <div class="card-body">
                 <h6>产品信息</h6>
                 <p class="small mb-1">国家: <strong>{{ product.country.name }}</strong></p>
                 <p class="small mb-1">原始印花: #{{ product.pattern_id }}</p>
-                <p class="small mb-1">模板: {{ product.template.name }}</p>
-                <p class="small mb-0">创建时间: {{ product.created_at|date:"Y-m-d H:i" }}</p>
+                <p class="small mb-1">SKU数: <strong>{{ product.skus.count }}</strong></p>
+                <p class="small mb-0">创建: {{ product.created_at|date:"Y-m-d H:i" }}</p>
             </div>
         </div>
         <div class="card border-0 shadow-sm" style="border-radius:12px;">
@@ -60,9 +85,7 @@
                     <strong>{{ log.get_step_display }}</strong> {{ log.model_used }}<br>
                     {{ log.duration_ms }}ms · {{ log.created_at|date:"H:i:s" }}
                 </div>
-                {% empty %}
-                <p class="text-muted small">暂无生成日志</p>
-                {% endfor %}
+                {% empty %}<p class="text-muted small">暂无日志</p>{% endfor %}
             </div>
         </div>
     </div>
