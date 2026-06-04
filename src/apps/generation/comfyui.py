@@ -12,9 +12,11 @@ from .provider import AIProvider, ImageResult
 class ComfyUIProvider(AIProvider):
     """ComfyUI HTTP API 封装"""
 
-    def __init__(self, base_url: str | None = None):
+    def __init__(self, base_url: str | None = None, model: str | None = None):
         self.base_url = base_url or settings.COMFYUI_BASE_URL
+        self.model = model or getattr(settings, 'COMFYUI_MODEL', 'sd_xl_base_1.0_0.9vae.safetensors')
         self.client = httpx.Client(timeout=120.0)
+        self.client_id = str(__import__('uuid').uuid4())
 
     def generate_image(self, prompt: str, reference_image=None,
                        params: dict | None = None) -> ImageResult:
@@ -45,6 +47,8 @@ class ComfyUIProvider(AIProvider):
             workflow = self._default_workflow()
 
         for node_id, node in workflow.items():
+            if node.get('class_type') == 'CheckpointLoaderSimple':
+                node['inputs']['ckpt_name'] = self.model
             if node.get('class_type') == 'CLIPTextEncode':
                 if node.get('_meta', {}).get('title') == 'Positive Prompt':
                     node['inputs']['text'] = prompt
@@ -58,7 +62,7 @@ class ComfyUIProvider(AIProvider):
 
     def _default_workflow(self) -> dict:
         return {
-            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "sd_xl_base_1.0.safetensors"}},
+            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.model}},
             "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": ""}, "_meta": {"title": "Positive Prompt"}},
             "3": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": ""}, "_meta": {"title": "Negative Prompt"}},
             "4": {"class_type": "EmptyLatentImage", "inputs": {"width": 1024, "height": 1024, "batch_size": 4}},
@@ -68,7 +72,10 @@ class ComfyUIProvider(AIProvider):
         }
 
     def _queue_prompt(self, workflow: dict) -> str:
-        resp = self.client.post(f'{self.base_url}/prompt', json={'prompt': workflow})
+        resp = self.client.post(f'{self.base_url}/prompt', json={
+            'prompt': workflow,
+            'client_id': self.client_id,
+        })
         resp.raise_for_status()
         return resp.json()['prompt_id']
 

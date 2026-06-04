@@ -111,6 +111,7 @@ AWS_QUERYSTRING_AUTH = False
 
 # AI provider settings
 COMFYUI_BASE_URL = config('COMFYUI_BASE_URL', default='http://localhost:7860')
+COMFYUI_MODEL = config('COMFYUI_MODEL', default='sd_xl_base_1.0_0.9vae.safetensors')
 OLLAMA_BASE_URL = config('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = config('OLLAMA_MODEL', default='qwen2.5:14b')
 
