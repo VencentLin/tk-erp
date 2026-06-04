@@ -4,9 +4,10 @@
 {% block content %}
 <div class="topbar">
     <h5>📦 产品库</h5>
-    <button class="btn btn-success rounded-pill" onclick="exportSelected()">
-        <i class="bi bi-download"></i> 导出选中
-    </button>
+    <div>
+        <a href="{% url 'product_generate_all' %}" class="btn btn-warning rounded-pill"><i class="bi bi-lightning"></i> 生成待处理</a>
+        <button class="btn btn-success rounded-pill" onclick="exportSelected()"><i class="bi bi-download"></i> 导出选中</button>
+    </div>
 </div>
 
 <div class="card-table mb-4">

@@ -252,30 +252,67 @@ def product_create(request):
             pattern = get_object_or_404(Pattern, id=int(pid))
             product = Product.objects.create(
                 country=country, pattern=pattern, template=template,
-                status='pending'
+                status='processing' if action == 'generate' else 'pending'
             )
             created += 1
 
             if action == 'generate':
-                try:
-                    from celery_app.pipeline import run_generation_pipeline
-                    run_generation_pipeline.delay(
-                        pattern_id=pattern.id,
-                        product_ids=[product.id],
-                        skip_preprocess=(pattern.source_type == 'clean_print'),
-                    )
-                except Exception:
-                    pass
+                # 同步执行生成流水线（无需 Celery/Redis）
+                import threading
+                t = threading.Thread(
+                    target=_run_pipeline_sync,
+                    args=(pattern.id, [product.id], pattern.source_type == 'clean_print'),
+                    daemon=True
+                )
+                t.start()
 
         msg = f'创建 {created} 个产品'
         if action == 'generate':
-            msg += '，已加入生成队列'
+            msg += '，正在后台生成中...'
         messages.success(request, msg)
         return redirect('product_list')
 
     return render(request, 'dashboard/product_create.html', {
         'patterns': patterns, 'templates': templates, 'countries': countries,
     })
+
+
+def _run_pipeline_sync(pattern_id, product_ids, skip_preprocess):
+    """同步执行生成流水线（后台线程）"""
+    from apps.patterns.models import Pattern
+    from apps.products.models import Product
+    import io
+    from PIL import Image
+
+    try:
+        # Step 1: 预处理（抠图）
+        if not skip_preprocess:
+            try:
+                from celery_app.preprocessing import remove_background_task
+                remove_background_task(pattern_id)
+            except Exception as e:
+                print(f'Preprocessing failed: {e}')
+
+        # Step 2: 图像生成
+        for pid in product_ids:
+            try:
+                from celery_app.image_gen import generate_print_variants_task
+                generate_print_variants_task(pattern_id, pid, variant_count=4)
+            except Exception as e:
+                Product.objects.filter(id=pid).update(status='failed', error_message=str(e))
+                print(f'Image gen failed for product {pid}: {e}')
+
+        # Step 3: 文本生成
+        for pid in product_ids:
+            try:
+                from celery_app.text_gen import generate_product_text_task
+                generate_product_text_task(pid)
+            except Exception as e:
+                Product.objects.filter(id=pid).update(status='text_pending', error_message=str(e))
+                print(f'Text gen failed for product {pid}: {e}')
+
+    except Exception as e:
+        Product.objects.filter(id__in=product_ids).update(status='failed', error_message=str(e))
 
 
 @staff_required
@@ -299,21 +336,37 @@ def product_delete(request, pid):
 
 
 @staff_required
+def product_generate_all(request):
+    """批量生成所有待处理产品"""
+    products = Product.objects.filter(status__in=['pending', 'text_pending']).select_related('pattern')
+    import threading
+    for p in products:
+        p.status = 'processing'
+        p.save()
+        t = threading.Thread(
+            target=_run_pipeline_sync,
+            args=(p.pattern_id, [p.id], p.pattern.source_type == 'clean_print'),
+            daemon=True
+        )
+        t.start()
+    messages.success(request, f'已启动 {products.count()} 个产品的生成')
+    return redirect('product_list')
+
+
+@staff_required
 def product_regenerate(request, pid):
     """重新触发生成"""
     p = get_object_or_404(Product, id=pid)
-    try:
-        from celery_app.pipeline import run_generation_pipeline
-        run_generation_pipeline.delay(
-            pattern_id=p.pattern_id,
-            product_ids=[p.id],
-            skip_preprocess=(p.pattern.source_type == 'clean_print'),
-        )
-        p.status = 'processing'
-        p.save()
-        messages.success(request, '已加入生成队列')
-    except Exception as e:
-        messages.error(request, f'启动失败: {e}')
+    import threading
+    p.status = 'processing'
+    p.save()
+    t = threading.Thread(
+        target=_run_pipeline_sync,
+        args=(p.pattern_id, [p.id], p.pattern.source_type == 'clean_print'),
+        daemon=True
+    )
+    t.start()
+    messages.success(request, '正在后台生成中...')
     return redirect('product_list')
 
 
