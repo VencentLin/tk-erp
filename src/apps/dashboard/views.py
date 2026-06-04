@@ -15,6 +15,47 @@ staff_required = user_passes_test(lambda u: u.is_staff, login_url='/admin/login/
 
 
 # ============================================================
+# Settings
+# ============================================================
+
+@staff_required
+def settings_page(request):
+    """系统设置"""
+    from apps.generation.comfyui import ComfyUIProvider
+    import json
+    from pathlib import Path
+
+    provider = ComfyUIProvider()
+    models = provider.get_available_checkpoints()
+    current_model = provider.model
+
+    config_path = Path(__file__).resolve().parent.parent.parent / 'data' / 'config.json'
+    variant_count = 4
+    try:
+        if config_path.exists():
+            with open(config_path) as f:
+                data = json.load(f)
+            variant_count = data.get('variant_count', 4)
+    except Exception:
+        pass
+
+    if request.method == 'POST':
+        selected_model = request.POST.get('model', current_model)
+        variant_count = int(request.POST.get('variant_count', 4))
+
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, 'w') as f:
+            json.dump({'comfyui_model': selected_model, 'variant_count': variant_count}, f)
+
+        messages.success(request, f'已切换模型: {selected_model}')
+        return redirect('settings_page')
+
+    return render(request, 'dashboard/settings.html', {
+        'models': models, 'current_model': current_model, 'variant_count': variant_count,
+    })
+
+
+# ============================================================
 # Dashboard
 # ============================================================
 

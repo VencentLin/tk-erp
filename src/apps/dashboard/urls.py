@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='dashboard'),
+    path('settings/', views.settings_page, name='settings_page'),
 
     # Country & Store
     path('countries/', views.country_list, name='country_list'),

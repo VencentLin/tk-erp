@@ -97,6 +97,9 @@
             <i class="bi bi-box-seam"></i> <span>产品库</span>
         </a>
         <div class="nav-section">系统</div>
+        <a href="{% url 'settings_page' %}" class="nav-link {% if 'settings' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-gear"></i> <span>系统设置</span>
+        </a>
         <a href="/admin/logout/" class="nav-link">
             <i class="bi bi-box-arrow-right"></i> <span>退出登录</span>
         </a>

@@ -1,0 +1,71 @@
+{% extends "dashboard/base.html" %}
+{% block title %}系统设置 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar"><h5>⚙️ 系统设置</h5></div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm" style="border-radius:12px;">
+            <div class="card-header"><h6 class="mb-0">🎨 ComfyUI 模型选择</h6></div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">当前使用的模型</label>
+                        {% for m in models %}
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="model" value="{{ m }}" id="m_{{ forloop.counter }}"
+                                   {% if m == current_model %}checked{% endif %}>
+                            <label class="form-check-label" for="m_{{ forloop.counter }}">
+                                {{ m }}
+                                {% if m == current_model %}<span class="badge bg-success ms-1">当前</span>{% endif %}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">每张印花变体数量</label>
+                        <select name="variant_count" class="form-select" style="width:auto;">
+                            <option value="2" {% if variant_count == 2 %}selected{% endif %}>2 个变体（快速）</option>
+                            <option value="4" {% if variant_count == 4 %}selected{% endif %}>4 个变体（默认）</option>
+                            <option value="6" {% if variant_count == 6 %}selected{% endif %}>6 个变体</option>
+                            <option value="8" {% if variant_count == 8 %}selected{% endif %}>8 个变体（全面）</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary rounded-pill"><i class="bi bi-check-lg"></i> 保存设置</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
+            <div class="card-header"><h6 class="mb-0">📋 系统信息</h6></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td>ComfyUI 地址</td><td><code>http://localhost:7860</code></td></tr>
+                    <tr><td>DeepSeek API</td><td><code>ark.cn-beijing.volces.com</code></td></tr>
+                    <tr><td>DeepSeek 模型</td><td><code>deepseek-v4-flash</code></td></tr>
+                    <tr><td>图片存储</td><td>本地文件系统</td></tr>
+                    <tr><td>数据库</td><td>SQLite</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm" style="border-radius:12px;">
+            <div class="card-header"><h6 class="mb-0">💡 提示</h6></div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li><strong>juggernautXL</strong> — 画质最好，适合商业级印花设计</li>
+                    <li><strong>DreamShaper</strong> — 色彩鲜艳，适合潮流风格</li>
+                    <li><strong>SDXL Base</strong> — 通用模型，速度最快</li>
+                    <li>切换模型后立即生效，无需重启</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

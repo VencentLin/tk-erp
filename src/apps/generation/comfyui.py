@@ -9,14 +9,39 @@ from django.conf import settings
 from .provider import AIProvider, ImageResult
 
 
+def _load_model_config() -> str:
+    """加载用户选择的模型，优先配置文件 > settings"""
+    import json
+    from pathlib import Path
+    config_path = Path(__file__).resolve().parent.parent.parent.parent / 'data' / 'config.json'
+    try:
+        if config_path.exists():
+            with open(config_path) as f:
+                data = json.load(f)
+            return data.get('comfyui_model', settings.COMFYUI_MODEL)
+    except Exception:
+        pass
+    return getattr(settings, 'COMFYUI_MODEL', 'sd_xl_base_1.0_0.9vae.safetensors')
+
+
 class ComfyUIProvider(AIProvider):
     """ComfyUI HTTP API 封装"""
 
     def __init__(self, base_url: str | None = None, model: str | None = None):
         self.base_url = base_url or settings.COMFYUI_BASE_URL
-        self.model = model or getattr(settings, 'COMFYUI_MODEL', 'sd_xl_base_1.0_0.9vae.safetensors')
+        self.model = model or _load_model_config()
         self.client = httpx.Client(timeout=120.0)
         self.client_id = str(__import__('uuid').uuid4())
+
+    def get_available_checkpoints(self) -> list[str]:
+        """获取 ComfyUI 中可用的模型列表"""
+        try:
+            resp = self.client.get(f'{self.base_url}/object_info/CheckpointLoaderSimple')
+            resp.raise_for_status()
+            data = resp.json()
+            return list(data['CheckpointLoaderSimple']['input']['required']['ckpt_name'][0])
+        except Exception:
+            return [self.model]
 
     def generate_image(self, prompt: str, reference_image=None,
                        params: dict | None = None) -> ImageResult:
