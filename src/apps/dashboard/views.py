@@ -461,7 +461,11 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
         return
 
     pattern_data = pattern.image.read()
-    reference = PILImage.open(io_mod.BytesIO(pattern_data)).convert('RGB')
+    reference = PILImage.open(io_mod.BytesIO(pattern_data)).convert('RGBA')
+
+    # 一律抠图，确保 img2img 输入是干净印花
+    from rembg import remove
+    reference = remove(reference).convert('RGB')
 
     provider = ComfyUIProvider()
     t0 = time.time()
