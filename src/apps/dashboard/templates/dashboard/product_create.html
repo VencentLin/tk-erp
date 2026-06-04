@@ -57,16 +57,16 @@
             <div class="row g-2">
                 {% for p in patterns %}
                 <div class="col-xxl-2 col-xl-3 col-md-4 col-sm-6">
-                    <label class="card border-0 shadow-sm h-100" style="cursor:pointer; border-radius:10px; overflow:hidden; transition:all .2s;">
-                        <input type="checkbox" name="patterns" value="{{ p.id }}" class="d-none pattern-check">
+                    <div class="card border-0 shadow-sm h-100 pattern-card" style="cursor:pointer; border-radius:10px; overflow:hidden; transition:all .2s;" data-pid="{{ p.id }}">
                         {% if p.image %}
-                        <img src="{{ p.image.url }}" style="height:160px; object-fit:cover;">
+                        <img src="{{ p.image.url }}" style="height:160px; object-fit:cover; pointer-events:none;">
                         {% endif %}
-                        <div class="card-body p-2 text-center small">
+                        <div class="card-body p-2 text-center small" style="pointer-events:none;">
                             <span class="badge bg-light text-dark">{{ p.get_source_type_display }}</span>
                             {% if p.note %}<br><small class="text-muted">{{ p.note|truncatechars:20 }}</small>{% endif %}
                         </div>
-                    </label>
+                        <input type="checkbox" name="patterns" value="{{ p.id }}" style="display:none;">
+                    </div>
                 </div>
                 {% empty %}
                 <div class="col-12 text-center py-4"><p class="text-muted">还没有印花，<a href="{% url 'pattern_upload' %}">去上传</a></p></div>
@@ -81,17 +81,17 @@
 </form>
 
 <script>
-document.querySelectorAll('label.card').forEach(card => {
-    const cb = card.querySelector('.pattern-check');
-    card.addEventListener('click', function(e) {
-        if (e.target.tagName === 'INPUT') return;
+document.querySelectorAll('.pattern-card').forEach(card => {
+    card.addEventListener('click', function() {
+        const cb = this.querySelector('input[type="checkbox"]');
         cb.checked = !cb.checked;
-        card.style.border = cb.checked ? '3px solid #667eea' : '';
-        card.style.transform = cb.checked ? 'scale(1.05)' : '';
-    });
-    cb.addEventListener('change', function() {
-        card.style.border = cb.checked ? '3px solid #667eea' : '';
-        card.style.transform = cb.checked ? 'scale(1.05)' : '';
+        if (cb.checked) {
+            this.style.border = '3px solid #667eea';
+            this.style.transform = 'scale(1.05)';
+        } else {
+            this.style.border = '';
+            this.style.transform = '';
+        }
     });
 });
 </script>
