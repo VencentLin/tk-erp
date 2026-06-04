@@ -92,7 +92,7 @@ class ComfyUIProvider(AIProvider):
             "5": {"class_type": "VAEEncode", "inputs": {"pixels": ["4", 0], "vae": ["1", 2]}},
             "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["5", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": denoise}},
             "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 2]}},
-            "8": {"class_type": "BriaRemoveImageBackground", "inputs": {"image": ["7", 0], "moderation": "false", "seed": seed}},
+            "8": {"class_type": "RecraftRemoveBackgroundNode", "inputs": {"image": ["7", 0]}},
             "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["8", 0]}},
         }
 
@@ -110,7 +110,7 @@ class ComfyUIProvider(AIProvider):
             "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
             "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0}},
             "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
-            "7": {"class_type": "BriaRemoveImageBackground", "inputs": {"image": ["6", 0], "moderation": "false", "seed": seed}},
+            "7": {"class_type": "RecraftRemoveBackgroundNode", "inputs": {"image": ["6", 0]}},
             "8": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["7", 0]}},
         }
 
