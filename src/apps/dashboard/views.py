@@ -534,8 +534,8 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     pos_prompt = (
         f"{base_description}. {color_hint}. "
-        f"Clean seamless pattern, vector illustration, on solid single-color background, "
-        f"crisp edges, print-ready for t-shirt, professional apparel graphic design."
+        f"Clean seamless pattern, vector illustration, crisp edges, "
+        f"print-ready for t-shirt, professional apparel graphic design."
     )
 
     neg_prompt = (
@@ -558,8 +558,7 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     if result.images:
         img = result.images[0]
-        # Step 4: 去白色/浅色背景，保留印花细节
-        img = _make_bg_transparent(img)
+        # ComfyUI 工作流已包含 BriaRemoveImageBackground，输出即为透明 PNG
         buf = io_mod.BytesIO()
         img.save(buf, format='PNG')
         buf.seek(0)
@@ -575,46 +574,6 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
         },
         duration_ms=duration,
     )
-
-
-def _make_bg_transparent(img, tolerance=30):
-    """泛洪填充去背景：从四角采样背景色，泛洪移除"""
-    img = img.convert('RGBA')
-    w, h = img.size
-    pixels = img.load()
-
-    # 从四角采样背景色
-    corners = [(0, 0), (w-1, 0), (0, h-1), (w-1, h-1)]
-    bg_colors = [pixels[x, y][:3] for x, y in corners]
-
-    def is_bg(r, g, b):
-        """判断像素是否接近任一角落的背景色"""
-        for br, bg_c, bb in bg_colors:
-            if abs(r-br) < tolerance and abs(g-bg_c) < tolerance and abs(b-bb) < tolerance:
-                return True
-        return False
-
-    # 从边缘开始泛洪
-    from collections import deque
-    visited = set()
-    q = deque()
-    for x in range(w):
-        q.append((x, 0)); q.append((x, h-1))
-    for y in range(1, h-1):
-        q.append((0, y)); q.append((w-1, y))
-
-    while q:
-        x, y = q.popleft()
-        if (x, y) in visited or x < 0 or x >= w or y < 0 or y >= h:
-            continue
-        r, g, b, a = pixels[x, y]
-        if is_bg(r, g, b):
-            visited.add((x, y))
-            pixels[x, y] = (r, g, b, 0)
-            for dx, dy in [(1,0), (-1,0), (0,1), (0,-1)]:
-                q.append((x+dx, y+dy))
-
-    return img
 
 
 def _composite_mockups(product_id):

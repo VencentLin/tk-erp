@@ -78,17 +78,11 @@ class ComfyUIProvider(AIProvider):
             return self._build_txt2img_workflow(prompt, params)
 
     def _build_img2img_workflow(self, prompt: str, reference_image: Image, params: dict) -> dict:
-        # 上传参考图
         uploaded_name = self._upload_image(reference_image)
-
         seed = params.get('seed', 0)
         steps = params.get('steps', 25)
         cfg = params.get('cfg_scale', 7.0)
         denoise = params.get('denoising_strength', 0.65)
-        width, height = reference_image.size
-        # 确保尺寸是 64 的倍数
-        width = (width // 64) * 64
-        height = (height // 64) * 64
 
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.model}},
@@ -98,7 +92,8 @@ class ComfyUIProvider(AIProvider):
             "5": {"class_type": "VAEEncode", "inputs": {"pixels": ["4", 0], "vae": ["1", 2]}},
             "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["5", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": denoise}},
             "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 2]}},
-            "8": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["7", 0]}},
+            "8": {"class_type": "BriaRemoveImageBackground", "inputs": {"image": ["7", 0], "moderation": "false", "seed": seed}},
+            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["8", 0]}},
         }
 
     def _build_txt2img_workflow(self, prompt: str, params: dict) -> dict:
@@ -115,7 +110,8 @@ class ComfyUIProvider(AIProvider):
             "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
             "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0}},
             "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
-            "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["6", 0]}},
+            "7": {"class_type": "BriaRemoveImageBackground", "inputs": {"image": ["6", 0], "moderation": "false", "seed": seed}},
+            "8": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["7", 0]}},
         }
 
     def _queue_prompt(self, workflow: dict) -> str:
