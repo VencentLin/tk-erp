@@ -279,10 +279,16 @@ def product_create(request):
 
 def _run_pipeline_sync(pattern_id, product_ids, skip_preprocess):
     """同步执行生成流水线（后台线程）"""
+    import sys, os
+    # 确保项目根目录在 Python 路径中
+    project_root = str(__import__('pathlib').Path(__file__).resolve().parent.parent.parent.parent)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    # 强制 onnxruntime 使用 CPU（避免 CUDA DLL 缺失报错）
+    os.environ.setdefault('ORT_PROVIDERS', 'CPUExecutionProvider')
+
     from apps.patterns.models import Pattern
     from apps.products.models import Product
-    import io
-    from PIL import Image
 
     try:
         # Step 1: 预处理（抠图）
