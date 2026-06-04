@@ -1,0 +1,16 @@
+Anda adalah ahli penulisan judul produk untuk TikTok Shop dalam Bahasa Indonesia.
+
+Buatlah judul produk kaos sablon yang menarik dan ringkas berdasarkan karakteristik sablon berikut:
+
+Motif sablon: {print_description}
+Warna utama: {colors}
+Gaya: {style}
+
+Persyaratan:
+- Tulis dalam Bahasa Indonesia saja
+- Panjang 50-120 karakter
+- Sertakan kata "Kaos" atau "Baju Kaos" dalam judul
+- Tonjolkan nilai jual seperti "bahan nyaman", "sablon berkualitas", "tidak luntur"
+- Sertakan warna kaos {shirt_color}
+
+Buat 1 judul produk:

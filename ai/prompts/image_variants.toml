@@ -1,0 +1,33 @@
+[default]
+batch_size = 4
+image_size = [1024, 1024]
+steps = 30
+cfg_scale = 7.0
+denoising_strength = 0.65
+
+[base_prompt]
+template = "seamless pattern design, {style_tags}, {color_scheme}, t-shirt print, vector style, high quality, clean edges, isolated on transparent background"
+
+[negative_prompt]
+template = "photo, realistic, human, face, text, watermark, logo, blurry, low quality, distorted, messy edges"
+
+[variants.color_shift]
+label = "换色系"
+style_tags = "{original_style}"
+color_scheme = "{new_color_palette}"
+
+[variants.style_transfer]
+label = "风格迁移"
+style_tags = "{new_style}"
+color_scheme = "{original_colors}"
+
+[variants.element_add]
+label = "元素加减"
+style_tags = "{original_style} with {new_elements}"
+color_scheme = "{original_colors}"
+
+[variants.composition_tweak]
+label = "构图微调"
+style_tags = "{original_style}"
+color_scheme = "{original_colors}"
+denoising_strength = 0.75
