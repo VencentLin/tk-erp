@@ -164,7 +164,6 @@ JAZZMIN_SETTINGS = {
     'language_chooser': True,
     'show_ui_builder': False,
     'custom_css': 'admin/css/custom.css',
-    'custom_js': 'admin/js/custom.js',
     'related_modal_active': True,
     'show_ui_builder': False,
 }
