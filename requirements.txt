@@ -1,0 +1,13 @@
+Django>=4.2,<5.0
+celery[redis]>=5.3,<6.0
+psycopg2-binary>=2.9
+django-storages[s3]>=1.14
+minio>=7.2
+Pillow>=10.0
+rembg>=2.0
+httpx>=0.25
+django-celery-results>=2.5
+python-decouple>=3.8
+django-htmx>=1.17
+pytest-django>=4.8
+pytest>=8.0
