@@ -446,13 +446,12 @@ def _run_pipeline_sync(pattern_id, product_id, skip_preprocess, variant_index=0)
 
 
 def _generate_single_print(pattern_id, product_id, variant_index=0):
-    """生成一张印花图（不循环变体方向）"""
-    import time, io as io_mod
+    """生成一张印花图 — 基于参考图做 img2img 变体"""
+    import time, random, io as io_mod
     from PIL import Image as PILImage
     from apps.patterns.models import Pattern
     from apps.products.models import Product, GenerationLog
     from apps.generation.comfyui import ComfyUIProvider
-    from ai.prompts.loader import build_image_prompt
     from django.core.files.base import ContentFile
 
     pattern = Pattern.objects.get(id=pattern_id)
@@ -467,27 +466,37 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
     provider = ComfyUIProvider()
     t0 = time.time()
 
-    # 只有一个变体方向，根据 variant_index 选不同风格
-    directions = ['color_shift', 'style_transfer', 'element_add', 'composition_tweak']
-    direction_key = directions[variant_index % len(directions)]
+    # 用 product_id 做种子，确保每个产品不同
+    rng = random.Random(product_id * 1000 + variant_index)
 
-    color_options = [
-        'vibrant colors', 'pastel tones', 'warm earthy colors', 'cool blue tones',
-        'monochrome', 'bold contrast colors', 'soft natural tones', 'bright neon colors'
+    # 变体策略：改颜色
+    color_palettes = [
+        'warm sunset tones', 'cool ocean blues', 'pastel pink lavender',
+        'earthy brown olive', 'bold red navy contrast', 'monochrome grayscale',
+        'neon bright vibrant', 'forest green cream'
     ]
-    style_options = [
-        'floral vintage pattern', 'geometric modern design', 'streetwear graphic style',
-        'minimalist clean design', 'watercolor art style', 'pop art bold design',
-        'bohemian ethnic pattern', 'Japanese wave pattern'
-    ]
+    chosen_colors = color_palettes[variant_index % len(color_palettes)]
 
-    pos_prompt, neg_prompt, params = build_image_prompt(
-        direction_key,
-        original_style=style_options[variant_index % len(style_options)],
-        colors_or_style=color_options[variant_index % len(color_options)],
+    # img2img prompt — 保持原始设计风格，只改配色
+    pos_prompt = (
+        f"t-shirt print design, seamless pattern, similar composition to reference, "
+        f"{chosen_colors} color scheme, vector style, clean edges, high quality, "
+        f"isolated on transparent background, print-ready artwork"
     )
+    neg_prompt = "photo, realistic, human, face, text, watermark, logo, blurry, low quality, messy edges, distorted, ugly, different composition"
 
-    result = provider.generate_image(prompt=pos_prompt, reference_image=reference, params=params)
+    params = {
+        'steps': 25,
+        'cfg_scale': 7.0,
+        'denoising_strength': 0.55 + rng.uniform(0, 0.15),  # 0.55~0.70 保持结构但换色
+        'seed': rng.randint(1, 999999999),
+    }
+
+    result = provider.generate_image(
+        prompt=pos_prompt,
+        reference_image=reference,
+        params=params,
+    )
 
     if result.images:
         img = result.images[0]
@@ -499,7 +508,12 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
     duration = int((time.time() - t0) * 1000)
     GenerationLog.objects.create(
         product=product, step='image_gen', model_used=provider.model,
-        params={'variant_index': variant_index, 'direction': direction_key, 'prompt': pos_prompt},
+        params={
+            'variant_index': variant_index,
+            'prompt': pos_prompt,
+            'denoising_strength': params['denoising_strength'],
+            'seed': params['seed'],
+        },
         duration_ms=duration,
     )
 

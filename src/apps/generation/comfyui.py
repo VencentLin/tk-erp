@@ -43,6 +43,20 @@ class ComfyUIProvider(AIProvider):
         except Exception:
             return [self.model]
 
+    def _upload_image(self, image: Image) -> str:
+        """上传图片到 ComfyUI，返回上传后的文件名"""
+        import io as io_mod
+        buf = io_mod.BytesIO()
+        image.save(buf, format='PNG')
+        buf.seek(0)
+
+        resp = self.client.post(
+            f'{self.base_url}/upload/image',
+            files={'image': ('reference.png', buf, 'image/png')},
+        )
+        resp.raise_for_status()
+        return resp.json()['name']
+
     def generate_image(self, prompt: str, reference_image=None,
                        params: dict | None = None) -> ImageResult:
         params = params or {}
@@ -57,41 +71,49 @@ class ComfyUIProvider(AIProvider):
         )
 
     def _build_workflow(self, prompt: str, reference_image, params: dict) -> dict:
-        import json
-        from pathlib import Path
-
-        workflow_path = (
-            Path(__file__).resolve().parent.parent.parent.parent
-            / 'ai' / 'comfy_workflows' / 'print_variation.json'
-        )
-
-        if workflow_path.exists():
-            with open(workflow_path) as f:
-                workflow = json.load(f)
+        if reference_image:
+            # img2img: 上传参考图 → VAE编码 → KSampler使用denoise<1
+            return self._build_img2img_workflow(prompt, reference_image, params)
         else:
-            workflow = self._default_workflow()
+            return self._build_txt2img_workflow(prompt, params)
 
-        for node_id, node in workflow.items():
-            if node.get('class_type') == 'CheckpointLoaderSimple':
-                node['inputs']['ckpt_name'] = self.model
-            if node.get('class_type') == 'CLIPTextEncode':
-                if node.get('_meta', {}).get('title') == 'Positive Prompt':
-                    node['inputs']['text'] = prompt
-            if node.get('class_type') == 'KSampler':
-                node['inputs']['steps'] = params.get('steps', 30)
-                node['inputs']['cfg'] = params.get('cfg_scale', 7.0)
-                if 'denoising' in params:
-                    node['inputs']['denoise'] = params['denoising']
+    def _build_img2img_workflow(self, prompt: str, reference_image: Image, params: dict) -> dict:
+        # 上传参考图
+        uploaded_name = self._upload_image(reference_image)
 
-        return workflow
+        seed = params.get('seed', 0)
+        steps = params.get('steps', 25)
+        cfg = params.get('cfg_scale', 7.0)
+        denoise = params.get('denoising_strength', 0.65)
+        width, height = reference_image.size
+        # 确保尺寸是 64 的倍数
+        width = (width // 64) * 64
+        height = (height // 64) * 64
 
-    def _default_workflow(self) -> dict:
         return {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.model}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": ""}, "_meta": {"title": "Positive Prompt"}},
-            "3": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": ""}, "_meta": {"title": "Negative Prompt"}},
-            "4": {"class_type": "EmptyLatentImage", "inputs": {"width": 1024, "height": 1024, "batch_size": 4}},
-            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": 0, "steps": 30, "cfg": 7.0, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0}},
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": prompt}, "_meta": {"title": "Positive Prompt"}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": "photo, realistic, human, face, text, watermark, logo, blurry, low quality, messy edges, distorted"}, "_meta": {"title": "Negative Prompt"}},
+            "4": {"class_type": "LoadImage", "inputs": {"image": uploaded_name}},
+            "5": {"class_type": "VAEEncode", "inputs": {"pixels": ["4", 0], "vae": ["1", 2]}},
+            "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["5", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": denoise}},
+            "7": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 2]}},
+            "8": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["7", 0]}},
+        }
+
+    def _build_txt2img_workflow(self, prompt: str, params: dict) -> dict:
+        seed = params.get('seed', 0)
+        steps = params.get('steps', 25)
+        cfg = params.get('cfg_scale', 7.0)
+        width = params.get('width', 1024)
+        height = params.get('height', 1024)
+
+        return {
+            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.model}},
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": prompt}, "_meta": {"title": "Positive Prompt"}},
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": "photo, realistic, human, face, text, watermark, logo, blurry, low quality, messy edges"}, "_meta": {"title": "Negative Prompt"}},
+            "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+            "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0}},
             "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
             "7": {"class_type": "SaveImage", "inputs": {"filename_prefix": "print_variant", "images": ["6", 0]}},
         }
