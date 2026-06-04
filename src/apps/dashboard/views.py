@@ -232,8 +232,11 @@ def template_upload(request):
         color = request.POST.get('color', 'white')
         image = request.FILES.get('image')
         if image and name:
-            TShirtTemplate.objects.create(name=name, color=color, image=image)
-            messages.success(request, '模板上传成功')
+            # 自动去背景
+            img_data = _remove_bg_from_upload(image)
+            tpl = TShirtTemplate(name=name, color=color)
+            tpl.image.save(image.name, img_data, save=True)
+            messages.success(request, '模板上传成功（已自动去背景）')
             return redirect('template_list')
     return render(request, 'dashboard/template_upload.html')
 
@@ -244,17 +247,35 @@ def template_edit(request, tid):
     if request.method == 'POST':
         t.name = request.POST.get('name', t.name)
         t.color = request.POST.get('color', t.color)
-        if request.FILES.get('image'): t.image = request.FILES['image']
-        t.is_active = request.POST.get('is_active') == 'on'; t.save()
+        if request.FILES.get('image'):
+            img_data = _remove_bg_from_upload(request.FILES['image'])
+            t.image.save(request.FILES['image'].name, img_data, save=False)
+        t.is_active = request.POST.get('is_active') == 'on'
+        t.save()
         messages.success(request, '已更新')
         return redirect('template_list')
     return render(request, 'dashboard/template_edit.html', {'template': t})
 
 
+def _remove_bg_from_upload(uploaded_file):
+    """对上传的文件进行抠图，返回 ContentFile"""
+    from PIL import Image as PILImage
+    from rembg import remove
+    from django.core.files.base import ContentFile
+
+    img = PILImage.open(uploaded_file).convert('RGBA')
+    result = remove(img)
+    buf = io.BytesIO()
+    result.save(buf, format='PNG')
+    buf.seek(0)
+    return ContentFile(buf.getvalue())
+
+
 @staff_required
 def template_delete(request, tid):
-    get_object_or_404(TShirtTemplate, id=tid).update(is_active=False) if False else get_object_or_404(TShirtTemplate, id=tid).__setattr__('is_active', False) or get_object_or_404(TShirtTemplate, id=tid).save()
-    t = get_object_or_404(TShirtTemplate, id=tid); t.is_active = False; t.save()
+    t = get_object_or_404(TShirtTemplate, id=tid)
+    t.is_active = False
+    t.save()
     return redirect('template_list')
 
 
