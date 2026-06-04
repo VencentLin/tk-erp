@@ -9,7 +9,7 @@
 - **数据库:** PostgreSQL 15
 - **图片存储:** MinIO (S3兼容)
 - **AI 图像:** ComfyUI (SDXL on RTX 5070)
-- **AI 文本:** Ollama (Qwen2.5/Llama4)
+- **AI 文本:** DeepSeek V4 Flash API (抖音 Coding Plan)
 - **部署:** Docker Compose
 
 ## 快速启动
@@ -18,7 +18,8 @@
 
 - Python 3.11+
 - Docker & Docker Compose
-- NVIDIA GPU + ComfyUI + Ollama (用于 AI 推理)
+- NVIDIA GPU + ComfyUI (用于图像生成)
+- DeepSeek API Key (抖音 Coding Plan)
 
 ### 本地开发
 

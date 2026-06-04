@@ -2,7 +2,7 @@
 import logging
 import time
 from celery import shared_task
-from apps.generation.ollama import OllamaProvider
+from apps.generation.deepseek import DeepSeekProvider
 from ai.prompts.loader import build_text_prompt
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ def generate_product_text_task(self, product_id: int) -> dict:
     from apps.products.models import Product, GenerationLog
 
     try:
-        product = Product.objects.select_related('country').get(id=product_id)
+        product = Product.objects.select_related('country', 'pattern').get(id=product_id)
     except Product.DoesNotExist:
         return {'success': False, 'product_id': product_id, 'error': 'Product not found'}
 
@@ -21,23 +21,21 @@ def generate_product_text_task(self, product_id: int) -> dict:
         language_map = {'ID': 'id', 'TH': 'th'}
         language = language_map.get(product.country.code, 'id')
 
-        provider = OllamaProvider()
+        # 印花描述：使用 pattern.note 或通用描述
+        if product.pattern.note:
+            analysis_desc = product.pattern.note
+        else:
+            analysis_desc = 'stylish print design'
 
-        analysis_desc = 'stylish print design'
-        if product.print_image:
-            try:
-                from PIL import Image
-                import io
-                data = product.print_image.read()
-                img = Image.open(io.BytesIO(data))
-                analysis = provider.analyze_image(img)
-                analysis_desc = analysis.description or analysis_desc
-            except Exception as e:
-                logger.warning(f'Image analysis failed for Product #{product_id}: {e}')
+        prompt = build_text_prompt(
+            language=language,
+            print_description=analysis_desc,
+            colors='',
+            style='',
+            shirt_color='white/black',
+        )
 
-        prompt = build_text_prompt(language=language, print_description=analysis_desc,
-                                   colors='', style='', shirt_color='white/black')
-
+        provider = DeepSeekProvider()
         t0 = time.time()
         result = provider.generate_text(prompt, language=language)
         duration = int((time.time() - t0) * 1000)

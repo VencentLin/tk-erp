@@ -111,3 +111,8 @@ AWS_QUERYSTRING_AUTH = False
 COMFYUI_BASE_URL = config('COMFYUI_BASE_URL', default='http://localhost:7860')
 OLLAMA_BASE_URL = config('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = config('OLLAMA_MODEL', default='qwen2.5:14b')
+
+# DeepSeek API (via 抖音 Coding Plan)
+DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY', default='')
+DEEPSEEK_BASE_URL = config('DEEPSEEK_BASE_URL', default='https://ark.cn-beijing.volces.com/api/v3')
+DEEPSEEK_MODEL = config('DEEPSEEK_MODEL', default='deepseek-v4-flash')
