@@ -446,7 +446,7 @@ def _run_pipeline_sync(pattern_id, product_id, skip_preprocess, variant_index=0)
 
 
 def _generate_single_print(pattern_id, product_id, variant_index=0):
-    """生成一张印花图 — 基于参考图做 img2img 变体"""
+    """提取参考图印花风格 → 生成同风格新印花 → 贴到T恤模板"""
     import time, random, io as io_mod
     from PIL import Image as PILImage
     from apps.patterns.models import Pattern
@@ -466,30 +466,40 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
     provider = ComfyUIProvider()
     t0 = time.time()
 
-    # 用 product_id 做种子，确保每个产品不同
     rng = random.Random(product_id * 1000 + variant_index)
 
-    # 变体策略：改颜色
-    color_palettes = [
-        'warm sunset tones', 'cool ocean blues', 'pastel pink lavender',
-        'earthy brown olive', 'bold red navy contrast', 'monochrome grayscale',
-        'neon bright vibrant', 'forest green cream'
+    # 干净印花 → img2img 克隆风格后生成新设计
+    # 模特/平铺图 → 也是 img2img（AI 足够聪明理解印花风格）
+    style_keywords = [
+        'floral botanical pattern', 'geometric abstract pattern', 'vintage retro graphics',
+        'minimalist clean line art', 'bohemian mandala pattern', 'streetwear graffiti art',
+        'Japanese traditional motif', 'tropical palm leaves pattern',
+        'cute kawaii illustration', 'psychedelic tie-dye pattern',
+        'nautical marine pattern', 'ethnic tribal pattern',
     ]
-    chosen_colors = color_palettes[variant_index % len(color_palettes)]
+    base_style = style_keywords[variant_index % len(style_keywords)]
 
-    # img2img prompt — 保持原始设计风格，只改配色
+    # 核心 prompt：告诉 AI 参考原图的印花风格，生成一个全新的同风格印花
     pos_prompt = (
-        f"t-shirt print design, seamless pattern, similar composition to reference, "
-        f"{chosen_colors} color scheme, vector style, clean edges, high quality, "
-        f"isolated on transparent background, print-ready artwork"
+        f"a brand new seamless {base_style}, t-shirt print design, "
+        f"high quality vector illustration, similar aesthetic to the reference image, "
+        f"clean edges, vibrant colors, isolated on white background, "
+        f"print-ready for t-shirt, professional apparel graphic"
     )
-    neg_prompt = "photo, realistic, human, face, text, watermark, logo, blurry, low quality, messy edges, distorted, ugly, different composition"
 
+    neg_prompt = (
+        "photorealistic, 3D render, human, person, face, body, t-shirt mockup, "
+        "clothing, fabric texture, wrinkled, text, letters, watermark, logo, "
+        "blurry, low quality, messy edges, distorted, ugly, different style"
+    )
+
+    # img2img: 用较高的 denoise 创作新设计但保留原始风格感
     params = {
-        'steps': 25,
-        'cfg_scale': 7.0,
-        'denoising_strength': 0.55 + rng.uniform(0, 0.15),  # 0.55~0.70 保持结构但换色
+        'steps': 30,
+        'cfg_scale': 7.5,
+        'denoising_strength': 0.65 + rng.uniform(0, 0.15),  # 0.65~0.80
         'seed': rng.randint(1, 999999999),
+        'batch_size': 1,
     }
 
     result = provider.generate_image(
@@ -510,7 +520,7 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
         product=product, step='image_gen', model_used=provider.model,
         params={
             'variant_index': variant_index,
-            'prompt': pos_prompt,
+            'style': base_style,
             'denoising_strength': params['denoising_strength'],
             'seed': params['seed'],
         },
