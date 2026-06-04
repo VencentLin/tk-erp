@@ -1,5 +1,7 @@
 """运营面板视图 — 完整 CRUD + AI 生成 + SKU 支持"""
 import json, io, threading, sys, os
+os.environ.setdefault('ORT_PROVIDERS', 'CPUExecutionProvider')  # 全局禁用 onnxruntime CUDA
+
 from pathlib import Path
 from PIL import Image
 from django.shortcuts import render, redirect, get_object_or_404

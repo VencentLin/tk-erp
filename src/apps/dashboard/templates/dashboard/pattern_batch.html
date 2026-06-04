@@ -66,8 +66,9 @@ document.querySelectorAll('input[type="file"]').forEach(inp => {
     });
 });
 document.querySelector('form')?.addEventListener('submit', function() {
-    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> 导入中…';
+    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> 正在导入（下载图片可能需要几分钟）…';
     document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').style.opacity = '0.7';
 });
 </script>
 {% endblock %}
