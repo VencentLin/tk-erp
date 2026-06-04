@@ -35,6 +35,7 @@ urlpatterns = [
     path('products/create/', views.product_create, name='product_create'),
     path('products/export/', views.product_export, name='product_export'),
     path('products/generate-all/', views.product_generate_all, name='product_generate_all'),
+    path('products/batch-delete/', views.product_batch_delete, name='product_batch_delete'),
     path('products/<int:pid>/edit/', views.product_edit, name='product_edit'),
     path('products/<int:pid>/delete/', views.product_delete, name='product_delete'),
     path('products/<int:pid>/regenerate/', views.product_regenerate, name='product_regenerate'),

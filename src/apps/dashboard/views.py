@@ -391,6 +391,16 @@ def product_regenerate(request, pid):
 
 
 @staff_required
+def product_batch_delete(request):
+    ids = request.GET.getlist('ids')
+    ids = [int(i) for i in ids if i.isdigit()]
+    if ids:
+        Product.objects.filter(id__in=ids).delete()
+        messages.success(request, f'已删除 {len(ids)} 个产品')
+    return redirect('product_list')
+
+
+@staff_required
 def product_export(request):
     ids = request.GET.getlist('ids')
     if not ids: messages.error(request, '请先选择产品'); return redirect('product_list')
