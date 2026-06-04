@@ -455,8 +455,47 @@ def _run_pipeline_sync(pattern_id, product_id, skip_preprocess, variant_index=0)
         Product.objects.filter(id=product_id).update(status='failed', error_message=str(e))
 
 
+def _analyze_print(image_data: bytes) -> str:
+    """用豆包 Vision API 分析印花特征，返回描述 prompt"""
+    import base64, requests, json as json_mod
+    from django.conf import settings
+
+    img_b64 = base64.b64encode(image_data).decode()
+
+    resp = requests.post(
+        f'{settings.DEEPSEEK_BASE_URL}/chat/completions',
+        headers={
+            'Authorization': f'Bearer {settings.DEEPSEEK_API_KEY}',
+            'Content-Type': 'application/json',
+        },
+        json={
+            'model': 'doubao-seed-2.0-lite',
+            'messages': [{
+                'role': 'user',
+                'content': [
+                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img_b64}'}},
+                    {'type': 'text', 'text': (
+                        'Describe this T-shirt PRINT DESIGN in detail. Focus ONLY on the print pattern itself, '
+                        'ignore the T-shirt, model, background, and clothing. Describe: style (e.g. floral, geometric, '
+                        'streetwear, vintage), pattern type, color scheme, composition, and artistic technique. '
+                        'Write a concise English prompt (max 80 words) suitable for Stable Diffusion to generate '
+                        'a brand new similar-style print design. The output should be a clean seamless pattern on '
+                        'transparent background, print-ready for apparel.'
+                    )},
+                ]
+            }],
+            'max_tokens': 200,
+            'temperature': 0.7,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return data['choices'][0]['message']['content'].strip()
+
+
 def _generate_single_print(pattern_id, product_id, variant_index=0):
-    """提取参考图印花风格 → 生成同风格新印花 → 贴到T恤模板"""
+    """豆包分析印花 → ComfyUI txt2img 全新生成 → 贴到模板"""
     import time, random, io as io_mod
     from PIL import Image as PILImage
     from apps.patterns.models import Pattern
@@ -470,61 +509,55 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
     if not pattern.image:
         return
 
-    pattern_data = pattern.image.read()
-    reference = PILImage.open(io_mod.BytesIO(pattern_data)).convert('RGBA')
-
-    # 一律抠图，确保 img2img 输入是干净印花
-    from rembg import remove
-    reference = remove(reference)  # 保持 RGBA，不转 RGB
-
     provider = ComfyUIProvider()
     t0 = time.time()
-
     rng = random.Random(product_id * 1000 + variant_index)
 
-    # 干净印花 → img2img 克隆风格后生成新设计
-    # 模特/平铺图 → 也是 img2img（AI 足够聪明理解印花风格）
-    style_keywords = [
-        'floral botanical pattern', 'geometric abstract pattern', 'vintage retro graphics',
-        'minimalist clean line art', 'bohemian mandala pattern', 'streetwear graffiti art',
-        'Japanese traditional motif', 'tropical palm leaves pattern',
-        'cute kawaii illustration', 'psychedelic tie-dye pattern',
-        'nautical marine pattern', 'ethnic tribal pattern',
-    ]
-    base_style = style_keywords[variant_index % len(style_keywords)]
+    # Step 1: 豆包分析印花特征
+    try:
+        base_description = _analyze_print(pattern.image.read())
+    except Exception as e:
+        base_description = 'a stylish seamless t-shirt print design, vector art, vibrant colors'
 
-    # 核心 prompt：告诉 AI 参考原图的印花风格，生成一个全新的同风格印花
+    # Step 2: 加入变体变化
+    color_variations = [
+        'with a refreshed color palette of warm tones',
+        'with a refreshed color palette of cool tones',
+        'with a pastel color scheme',
+        'with bold high-contrast colors',
+        'with earthy natural colors',
+        'with neon vibrant colors',
+        'with monochrome palette',
+        'with jewel-tone colors',
+    ]
+    color_hint = color_variations[variant_index % len(color_variations)]
+
     pos_prompt = (
-        f"a brand new seamless {base_style}, t-shirt print design, "
-        f"high quality vector illustration, similar aesthetic to the reference image, "
-        f"clean edges, vibrant colors, transparent background, "
-        f"print-ready for t-shirt, professional apparel graphic"
+        f"{base_description}. {color_hint}. "
+        f"Clean seamless pattern, vector illustration, transparent background, "
+        f"crisp edges, print-ready for t-shirt, professional apparel graphic design."
     )
 
     neg_prompt = (
-        "photorealistic, 3D render, human, person, face, body, t-shirt mockup, "
-        "clothing, fabric texture, wrinkled, text, letters, watermark, logo, "
-        "blurry, low quality, messy edges, distorted, ugly, different style"
+        "photorealistic, 3D render, human, person, face, body, clothing, t-shirt, "
+        "fabric, wrinkled, photo of, mockup, mannequin, watermark, logo, "
+        "blurry, low quality, messy edges, white background, black background"
     )
 
-    # img2img: 用较高的 denoise 创作新设计但保留原始风格感
+    # Step 3: txt2img 全新生成（不用 img2img，不会有"重印T恤"问题）
     params = {
         'steps': 30,
         'cfg_scale': 7.5,
-        'denoising_strength': 0.65 + rng.uniform(0, 0.15),  # 0.65~0.80
         'seed': rng.randint(1, 999999999),
-        'batch_size': 1,
+        'width': 1024,
+        'height': 1024,
     }
 
-    result = provider.generate_image(
-        prompt=pos_prompt,
-        reference_image=reference,
-        params=params,
-    )
+    result = provider.generate_image(prompt=pos_prompt, params=params)
 
     if result.images:
         img = result.images[0]
-        # 二次抠图，确保背景透明
+        # Step 4: 抠图确保透明背景
         from rembg import remove
         img = remove(img.convert('RGBA'))
         buf = io_mod.BytesIO()
@@ -534,11 +567,10 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     duration = int((time.time() - t0) * 1000)
     GenerationLog.objects.create(
-        product=product, step='image_gen', model_used=provider.model,
+        product=product, step='image_gen', model_used=f'{provider.model} + doubao-seed-2.0-lite',
         params={
             'variant_index': variant_index,
-            'style': base_style,
-            'denoising_strength': params['denoising_strength'],
+            'base_description': base_description[:200],
             'seed': params['seed'],
         },
         duration_ms=duration,
