@@ -11,3 +11,4 @@ python-decouple>=3.8
 django-htmx>=1.17
 pytest-django>=4.8
 pytest>=8.0
+gunicorn>=21.2
