@@ -465,7 +465,7 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     # 一律抠图，确保 img2img 输入是干净印花
     from rembg import remove
-    reference = remove(reference).convert('RGB')
+    reference = remove(reference)  # 保持 RGBA，不转 RGB
 
     provider = ComfyUIProvider()
     t0 = time.time()
@@ -487,7 +487,7 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
     pos_prompt = (
         f"a brand new seamless {base_style}, t-shirt print design, "
         f"high quality vector illustration, similar aesthetic to the reference image, "
-        f"clean edges, vibrant colors, isolated on white background, "
+        f"clean edges, vibrant colors, transparent background, "
         f"print-ready for t-shirt, professional apparel graphic"
     )
 
@@ -514,6 +514,9 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     if result.images:
         img = result.images[0]
+        # 二次抠图，确保背景透明
+        from rembg import remove
+        img = remove(img.convert('RGBA'))
         buf = io_mod.BytesIO()
         img.save(buf, format='PNG')
         buf.seek(0)
