@@ -1,0 +1,74 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div class="batch-upload-container" style="max-width: 900px;">
+    <h1>批量导入印花</h1>
+    <p style="color: #666; margin-bottom: 20px;">
+        支持上传多张图片、整个文件夹，或包含图片链接的 Excel 表格。<br>
+        系统会自动检测重复图片、识别印花类型。
+    </p>
+
+    {% if results %}
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3>导入结果</h3>
+        <p>
+            ✅ 新增: <strong>{{ new_count }}</strong> &nbsp;&nbsp;
+            🔄 重复跳过: <strong>{{ dup_count }}</strong> &nbsp;&nbsp;
+            ❌ 失败: <strong>{{ err_count }}</strong>
+        </p>
+
+        {% if results|length <= 50 %}
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <tr style="background: #e9ecef;">
+                <th style="padding: 8px; text-align: left;">文件名</th>
+                <th style="padding: 8px; text-align: left;">状态</th>
+                <th style="padding: 8px; text-align: left;">识别类型</th>
+                <th style="padding: 8px; text-align: left;">备注</th>
+            </tr>
+            {% for r in results %}
+            <tr style="border-bottom: 1px solid #dee2e6;">
+                <td style="padding: 8px;">{{ r.filename|truncatechars:50 }}</td>
+                <td style="padding: 8px;">
+                    {% if r.status == 'new' %}✅ 新增
+                    {% elif r.status == 'duplicate' %}🔄 重复
+                    {% else %}❌ 失败{% endif %}
+                </td>
+                <td style="padding: 8px;">{{ r.source_type }}</td>
+                <td style="padding: 8px; font-size: 0.85em; color: #666;">{{ r.note }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+
+        <a href="../" class="button" style="margin-top: 15px; display: inline-block;">← 返回印花列表</a>
+    </div>
+    {% elif error %}
+    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #856404;">❌ 导入出错</h3>
+        <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; white-space: pre-wrap;">{{ error }}</pre>
+        <a href="." style="display: inline-block; margin-top: 10px;" class="button">← 重试</a>
+    </div>
+    {% else %}
+    <form method="post" enctype="multipart/form-data" style="background: #f8f9fa; border-radius: 8px; padding: 30px;" onsubmit="this.querySelector('button').innerHTML='⏳ 导入中...'; this.querySelector('button').disabled=true;">
+        {% csrf_token %}
+
+        <div style="margin-bottom: 25px;">
+            <h3>📁 上传图片文件</h3>
+            <input type="file" name="images" multiple accept="image/*" style="display: block; margin-top: 10px; padding: 10px; border: 2px dashed #ccc; border-radius: 6px; width: 100%;">
+            <small style="color: #888;">可多选图片，或拖拽整个文件夹</small>
+        </div>
+
+        <div style="margin-bottom: 25px; padding-top: 20px; border-top: 1px solid #ddd;">
+            <h3>📊 或上传 Excel 表格</h3>
+            <input type="file" name="excel_file" accept=".xlsx,.xls" style="display: block; margin-top: 10px; padding: 10px; border: 2px dashed #ccc; border-radius: 6px; width: 100%;">
+            <small style="color: #888;">Excel 中所有图片链接会被自动识别和下载</small>
+        </div>
+
+        <button type="submit" style="background: #007bff; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 16px; cursor: pointer;">
+            🚀 开始导入
+        </button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

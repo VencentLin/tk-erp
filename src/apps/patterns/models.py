@@ -26,6 +26,8 @@ class Pattern(models.Model):
         max_length=20, choices=SOURCE_CHOICES, default='clean_print',
         help_text='图片来源类型（决定是否需要抠图预处理）'
     )
+    image_hash = models.CharField(max_length=64, blank=True, default='', db_index=True,
+                                   help_text='图片 SHA256 哈希，用于查重')
     note = models.TextField(blank=True, default='')
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
