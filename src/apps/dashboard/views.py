@@ -557,9 +557,8 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     if result.images:
         img = result.images[0]
-        # Step 4: 抠图确保透明背景
-        from rembg import remove
-        img = remove(img.convert('RGBA'))
+        # Step 4: 去白色/浅色背景，保留印花细节
+        img = _make_bg_transparent(img)
         buf = io_mod.BytesIO()
         img.save(buf, format='PNG')
         buf.seek(0)
@@ -575,6 +574,24 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
         },
         duration_ms=duration,
     )
+
+
+def _make_bg_transparent(img):
+    """将白色/浅色背景转为透明，保留印花内容"""
+    img = img.convert('RGBA')
+    data = img.getdata()
+    new_data = []
+    for r, g, b, a in data:
+        # 只处理接近白色/灰色的像素（所有通道都>200且颜色接近）
+        if r > 200 and g > 200 and b > 200 and abs(r - g) < 30 and abs(g - b) < 30 and abs(r - b) < 30:
+            # 越白越透明
+            lightness = (r + g + b) / 3
+            alpha = max(0, int(255 * (1 - (lightness - 200) / 55)))  # 200→255, 255→0
+            new_data.append((r, g, b, alpha))
+        else:
+            new_data.append((r, g, b, a))
+    img.putdata(new_data)
+    return img
 
 
 def _composite_mockups(product_id):
