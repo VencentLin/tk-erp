@@ -1,0 +1,70 @@
+{% extends "dashboard/base.html" %}
+{% block title %}编辑产品 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar"><h5>✏️ 编辑产品 #{{ product.id }}</h5><a href="{% url 'product_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <form method="post">
+            {% csrf_token %}
+            <div class="card border-0 shadow-sm" style="border-radius:12px;">
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            {% if product.print_image %}
+                            <label class="form-label">印花图</label>
+                            <img src="{{ product.print_image.url }}" style="width:100%; max-height:300px; object-fit:contain; border-radius:8px; display:block;">
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            {% if product.mockup_image %}
+                            <label class="form-label">效果图</label>
+                            <img src="{{ product.mockup_image.url }}" style="width:100%; max-height:300px; object-fit:contain; border-radius:8px; display:block;">
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mb-3"><label class="form-label">标题</label><input name="title" value="{{ product.title }}" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">描述</label><textarea name="description" class="form-control" rows="3">{{ product.description }}</textarea></div>
+                    <div class="mb-3"><label class="form-label">尺码</label><input name="size_info" value="{{ product.size_info }}" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">状态</label>
+                        <select name="status" class="form-select">
+                            {% for k, v in product.STATUS_CHOICES %}
+                            <option value="{{ k }}" {% if product.status == k %}selected{% endif %}>{{ v }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent text-end">
+                    <button type="submit" class="btn btn-primary rounded-pill">保存</button>
+                    <a href="{% url 'product_regenerate' product.id %}" class="btn btn-warning rounded-pill"><i class="bi bi-arrow-repeat"></i> 重新生成</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
+            <div class="card-body">
+                <h6>产品信息</h6>
+                <p class="small mb-1">国家: <strong>{{ product.country.name }}</strong></p>
+                <p class="small mb-1">原始印花: #{{ product.pattern_id }}</p>
+                <p class="small mb-1">模板: {{ product.template.name }}</p>
+                <p class="small mb-0">创建时间: {{ product.created_at|date:"Y-m-d H:i" }}</p>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm" style="border-radius:12px;">
+            <div class="card-body">
+                <h6>生成日志</h6>
+                {% for log in product.generation_logs.all %}
+                <div class="border-start border-3 border-primary ps-2 mb-2 small">
+                    <strong>{{ log.get_step_display }}</strong> {{ log.model_used }}<br>
+                    {{ log.duration_ms }}ms · {{ log.created_at|date:"H:i:s" }}
+                </div>
+                {% empty %}
+                <p class="text-muted small">暂无生成日志</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -81,19 +81,22 @@
         <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <i class="bi bi-speedometer2"></i> <span>工作台</span>
         </a>
+        <a href="{% url 'country_list' %}" class="nav-link {% if 'country' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-building"></i> <span>店铺管理</span>
+        </a>
         <a href="{% url 'pattern_list' %}" class="nav-link {% if 'pattern' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-palette"></i> <span>印花管理</span>
         </a>
         <a href="{% url 'template_list' %}" class="nav-link {% if 'template' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-tshirt"></i> <span>T恤模板</span>
         </a>
-        <a href="{% url 'product_list' %}" class="nav-link {% if 'product' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'product_create' %}" class="nav-link {% if request.resolver_match.url_name == 'product_create' %}active{% endif %}">
+            <i class="bi bi-stars"></i> <span>创建产品</span>
+        </a>
+        <a href="{% url 'product_list' %}" class="nav-link {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}">
             <i class="bi bi-box-seam"></i> <span>产品库</span>
         </a>
         <div class="nav-section">系统</div>
-        <a href="/admin/" class="nav-link" target="_blank">
-            <i class="bi bi-gear"></i> <span>后台管理</span>
-        </a>
         <a href="/admin/logout/" class="nav-link">
             <i class="bi bi-box-arrow-right"></i> <span>退出登录</span>
         </a>

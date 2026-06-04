@@ -1,0 +1,98 @@
+{% extends "dashboard/base.html" %}
+{% block title %}创建产品 - TK-ERP{% endblock %}
+
+{% block content %}
+<div class="topbar"><h5>✨ 创建产品</h5><a href="{% url 'product_list' %}" class="btn btn-outline-secondary rounded-pill">← 产品库</a></div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm" style="border-radius:12px;">
+                <div class="card-body">
+                    <h6 class="mb-3">🌏 选择国家</h6>
+                    {% for c in countries %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="country" value="{{ c.code }}" id="country_{{ c.code }}" required>
+                        <label class="form-check-label" for="country_{{ c.code }}">{{ c.name }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm" style="border-radius:12px;">
+                <div class="card-body">
+                    <h6 class="mb-3">👕 选择模板</h6>
+                    {% for t in templates %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="template" value="{{ t.id }}" id="tpl_{{ t.id }}" required>
+                        <label class="form-check-label" for="tpl_{{ t.id }}">
+                            {{ t.name }}
+                            {% if t.image %}<br><img src="{{ t.image.url }}" style="width:60px; height:60px; object-fit:cover; border-radius:6px; margin-top:4px;">{% endif %}
+                        </label>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">暂无模板，<a href="{% url 'template_upload' %}">去上传</a></p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm" style="border-radius:12px;">
+                <div class="card-body">
+                    <h6 class="mb-3">🚀 动作</h6>
+                    <div class="form-check mb-2"><input class="form-check-input" type="radio" name="action" value="create" id="act_create" checked><label class="form-check-label" for="act_create">仅创建产品（稍后手动生成）</label></div>
+                    <div class="form-check mb-2"><input class="form-check-input" type="radio" name="action" value="generate" id="act_gen"><label class="form-check-label" for="act_gen">创建并立即生成（需ComfyUI运行）</label></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3" style="border-radius:12px;">
+        <div class="card-header"><h6 class="mb-0">🖼️ 选择印花 <small class="text-muted">（可多选）</small></h6></div>
+        <div class="card-body">
+            <div class="row g-2">
+                {% for p in patterns %}
+                <div class="col-xxl-2 col-xl-3 col-md-4 col-sm-6">
+                    <label class="card border-0 shadow-sm h-100" style="cursor:pointer; border-radius:10px; overflow:hidden; transition:all .2s;">
+                        <input type="checkbox" name="patterns" value="{{ p.id }}" class="d-none pattern-check">
+                        {% if p.image %}
+                        <img src="{{ p.image.url }}" style="height:160px; object-fit:cover;">
+                        {% endif %}
+                        <div class="card-body p-2 text-center small">
+                            <span class="badge bg-light text-dark">{{ p.get_source_type_display }}</span>
+                            {% if p.note %}<br><small class="text-muted">{{ p.note|truncatechars:20 }}</small>{% endif %}
+                        </div>
+                    </label>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center py-4"><p class="text-muted">还没有印花，<a href="{% url 'pattern_upload' %}">去上传</a></p></div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5"><i class="bi bi-stars"></i> 开始创建</button>
+    </div>
+</form>
+
+<script>
+document.querySelectorAll('label.card').forEach(card => {
+    const cb = card.querySelector('.pattern-check');
+    card.addEventListener('click', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        cb.checked = !cb.checked;
+        card.style.border = cb.checked ? '3px solid #667eea' : '';
+        card.style.transform = cb.checked ? 'scale(1.05)' : '';
+    });
+    cb.addEventListener('change', function() {
+        card.style.border = cb.checked ? '3px solid #667eea' : '';
+        card.style.transform = cb.checked ? 'scale(1.05)' : '';
+    });
+});
+</script>
+{% endblock %}
