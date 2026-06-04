@@ -24,5 +24,8 @@ Thumbs.db
 # Media uploads
 media/
 
+# SQLite
+*.sqlite3
+
 # Static
 staticfiles/
