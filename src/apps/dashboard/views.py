@@ -534,14 +534,15 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     pos_prompt = (
         f"{base_description}. {color_hint}. "
-        f"Clean seamless pattern, vector illustration, transparent background, "
+        f"Clean seamless pattern, vector illustration, on solid bright green background (#00FF00), "
         f"crisp edges, print-ready for t-shirt, professional apparel graphic design."
     )
 
     neg_prompt = (
         "photorealistic, 3D render, human, person, face, body, clothing, t-shirt, "
         "fabric, wrinkled, photo of, mockup, mannequin, watermark, logo, "
-        "blurry, low quality, messy edges, white background, black background"
+        "blurry, low quality, messy edges, white background, black background, "
+        "gray background, dark background"
     )
 
     # Step 3: txt2img 全新生成（不用 img2img，不会有"重印T恤"问题）
@@ -577,17 +578,14 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
 
 def _make_bg_transparent(img):
-    """将白色/浅色背景转为透明，保留印花内容"""
+    """色键抠图：移除纯绿色背景（#00FF00），保留印花"""
     img = img.convert('RGBA')
     data = img.getdata()
     new_data = []
     for r, g, b, a in data:
-        # 只处理接近白色/灰色的像素（所有通道都>200且颜色接近）
-        if r > 200 and g > 200 and b > 200 and abs(r - g) < 30 and abs(g - b) < 30 and abs(r - b) < 30:
-            # 越白越透明
-            lightness = (r + g + b) / 3
-            alpha = max(0, int(255 * (1 - (lightness - 200) / 55)))  # 200→255, 255→0
-            new_data.append((r, g, b, alpha))
+        # 绿色通道占比高且红蓝低 → 绿色背景
+        if g > 200 and r < g * 0.5 and b < g * 0.5:
+            new_data.append((r, g, b, 0))
         else:
             new_data.append((r, g, b, a))
     img.putdata(new_data)
