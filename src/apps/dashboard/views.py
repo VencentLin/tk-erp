@@ -29,27 +29,17 @@ def settings_page(request):
     models = provider.get_available_checkpoints()
     current_model = provider.model
 
-    config_path = PROJECT_ROOT / 'data' / 'config.json'
-    variant_count = 4
-    try:
-        if config_path.exists():
-            with open(config_path) as f:
-                data = json.load(f)
-            variant_count = data.get('variant_count', 4)
-    except Exception:
-        pass
-
     if request.method == 'POST':
         selected_model = request.POST.get('model', current_model)
-        variant_count = int(request.POST.get('variant_count', 4))
+        config_path = PROJECT_ROOT / 'data' / 'config.json'
         config_path.parent.mkdir(parents=True, exist_ok=True)
         with open(config_path, 'w') as f:
-            json.dump({'comfyui_model': selected_model, 'variant_count': variant_count}, f)
+            json.dump({'comfyui_model': selected_model}, f)
         messages.success(request, f'已切换模型: {selected_model}')
         return redirect('settings_page')
 
     return render(request, 'dashboard/settings.html', {
-        'models': models, 'current_model': current_model, 'variant_count': variant_count,
+        'models': models, 'current_model': current_model,
     })
 
 
@@ -296,6 +286,7 @@ def product_create(request):
         pattern_ids = request.POST.getlist('patterns')
         country_code = request.POST.get('country')
         template_ids = request.POST.getlist('templates')
+        variant_count = int(request.POST.get('variant_count', 1))
         action = request.POST.get('action', 'create')
 
         if not pattern_ids or not country_code or not template_ids:
@@ -306,21 +297,26 @@ def product_create(request):
         created = 0
         for pid in pattern_ids:
             pattern = get_object_or_404(Pattern, id=int(pid))
-            product = Product.objects.create(
-                country=country, pattern=pattern,
-                status='processing' if action == 'generate' else 'pending'
-            )
-            for tid in template_ids:
-                template = get_object_or_404(TShirtTemplate, id=int(tid))
-                ProductSKU.objects.create(product=product, template=template)
-            created += 1
+            # 每个变体方向 = 一个独立产品
+            for v in range(variant_count):
+                product = Product.objects.create(
+                    country=country, pattern=pattern,
+                    status='processing' if action == 'generate' else 'pending'
+                )
+                for tid in template_ids:
+                    template = get_object_or_404(TShirtTemplate, id=int(tid))
+                    ProductSKU.objects.create(product=product, template=template)
+                created += 1
 
-            if action == 'generate':
-                threading.Thread(target=_run_pipeline_sync,
-                                 args=(pattern.id, product.id, pattern.source_type == 'clean_print'),
-                                 daemon=True).start()
+                if action == 'generate':
+                    threading.Thread(target=_run_pipeline_sync,
+                                     args=(pattern.id, product.id, pattern.source_type == 'clean_print', v),
+                                     daemon=True).start()
 
-        messages.success(request, f'创建 {created} 个产品（每个 {len(template_ids)} 个SKU），正在生成中...')
+        msg = f'创建 {created} 个产品'
+        if len(template_ids) > 1: msg += f'（每个 {len(template_ids)} 个SKU）'
+        if variant_count > 1: msg += f'（每印花 {variant_count} 个变体）'
+        messages.success(request, msg)
         return redirect('product_list')
 
     return render(request, 'dashboard/product_create.html', {
@@ -387,7 +383,7 @@ def product_export(request):
 # Pipeline (background thread)
 # ============================================================
 
-def _run_pipeline_sync(pattern_id, product_id, skip_preprocess):
+def _run_pipeline_sync(pattern_id, product_id, skip_preprocess, variant_index=0):
     """后台线程执行生成流水线"""
     project_root = str(PROJECT_ROOT)
     if project_root not in sys.path:
@@ -403,10 +399,9 @@ def _run_pipeline_sync(pattern_id, product_id, skip_preprocess):
             except Exception as e:
                 print(f'Preprocessing failed: {e}')
 
-        # Step 2: 图像生成 — 只生成印花
+        # Step 2: 生成一张印花图（不同变体用不同seed）
         try:
-            from celery_app.image_gen import generate_print_variants_task
-            generate_print_variants_task(pattern_id, product_id, variant_count=_get_variant_count())
+            _generate_single_print(pattern_id, product_id, variant_index)
         except Exception as e:
             Product.objects.filter(id=product_id).update(status='failed', error_message=str(e))
             print(f'Image gen failed for product {product_id}: {e}')
@@ -427,15 +422,63 @@ def _run_pipeline_sync(pattern_id, product_id, skip_preprocess):
         Product.objects.filter(id=product_id).update(status='failed', error_message=str(e))
 
 
-def _get_variant_count():
-    try:
-        config_path = PROJECT_ROOT / 'data' / 'config.json'
-        if config_path.exists():
-            with open(config_path) as f:
-                return json.load(f).get('variant_count', 4)
-    except Exception:
-        pass
-    return 4
+def _generate_single_print(pattern_id, product_id, variant_index=0):
+    """生成一张印花图（不循环变体方向）"""
+    import time, io as io_mod
+    from PIL import Image as PILImage
+    from apps.patterns.models import Pattern
+    from apps.products.models import Product, GenerationLog
+    from apps.generation.comfyui import ComfyUIProvider
+    from ai.prompts.loader import build_image_prompt
+    from django.core.files.base import ContentFile
+
+    pattern = Pattern.objects.get(id=pattern_id)
+    product = Product.objects.get(id=product_id)
+
+    if not pattern.image:
+        return
+
+    pattern_data = pattern.image.read()
+    reference = PILImage.open(io_mod.BytesIO(pattern_data)).convert('RGB')
+
+    provider = ComfyUIProvider()
+    t0 = time.time()
+
+    # 只有一个变体方向，根据 variant_index 选不同风格
+    directions = ['color_shift', 'style_transfer', 'element_add', 'composition_tweak']
+    direction_key = directions[variant_index % len(directions)]
+
+    color_options = [
+        'vibrant colors', 'pastel tones', 'warm earthy colors', 'cool blue tones',
+        'monochrome', 'bold contrast colors', 'soft natural tones', 'bright neon colors'
+    ]
+    style_options = [
+        'floral vintage pattern', 'geometric modern design', 'streetwear graphic style',
+        'minimalist clean design', 'watercolor art style', 'pop art bold design',
+        'bohemian ethnic pattern', 'Japanese wave pattern'
+    ]
+
+    pos_prompt, neg_prompt, params = build_image_prompt(
+        direction_key,
+        original_style=style_options[variant_index % len(style_options)],
+        colors_or_style=color_options[variant_index % len(color_options)],
+    )
+
+    result = provider.generate_image(prompt=pos_prompt, reference_image=reference, params=params)
+
+    if result.images:
+        img = result.images[0]
+        buf = io_mod.BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        product.print_image.save(f'product_{product_id}_print.png', ContentFile(buf.getvalue()), save=True)
+
+    duration = int((time.time() - t0) * 1000)
+    GenerationLog.objects.create(
+        product=product, step='image_gen', model_used=provider.model,
+        params={'variant_index': variant_index, 'direction': direction_key, 'prompt': pos_prompt},
+        duration_ms=duration,
+    )
 
 
 def _composite_mockups(product_id):

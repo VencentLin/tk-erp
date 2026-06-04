@@ -25,16 +25,6 @@
                         {% endfor %}
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">每张印花变体数量</label>
-                        <select name="variant_count" class="form-select" style="width:auto;">
-                            <option value="2" {% if variant_count == 2 %}selected{% endif %}>2 个变体（快速）</option>
-                            <option value="4" {% if variant_count == 4 %}selected{% endif %}>4 个变体（默认）</option>
-                            <option value="6" {% if variant_count == 6 %}selected{% endif %}>6 个变体</option>
-                            <option value="8" {% if variant_count == 8 %}selected{% endif %}>8 个变体（全面）</option>
-                        </select>
-                    </div>
-
                     <button type="submit" class="btn btn-primary rounded-pill"><i class="bi bi-check-lg"></i> 保存设置</button>
                 </form>
             </div>
