@@ -577,7 +577,7 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
 
 def _composite_mockups(product_id):
-    """将生成的印花贴到每个SKU的T恤模板上"""
+    """将生成的印花贴到每个SKU的T恤模板上，智能适配大小"""
     from apps.products.models import ProductSKU
     from django.core.files.base import ContentFile
 
@@ -585,33 +585,64 @@ def _composite_mockups(product_id):
     if not product.print_image:
         return
 
-    # 读取印花图
     print_img = Image.open(product.print_image).convert('RGBA')
     skus = ProductSKU.objects.filter(product_id=product_id).select_related('template')
+
+    # 分析印花内容密度（间隔采样加速）
+    pixels = print_img.load()
+    pw_full, ph_full = print_img.size
+    step = max(1, max(pw_full, ph_full) // 200)
+    min_x, min_y, max_x, max_y = pw_full, ph_full, 0, 0
+    content_pixels, total_pixels = 0, 0
+
+    for y in range(0, ph_full, step):
+        for x in range(0, pw_full, step):
+            total_pixels += 1
+            _, _, _, a = pixels[x, y]
+            if a > 30:
+                content_pixels += 1
+                min_x, max_x = min(min_x, x), max(max_x, x)
+                min_y, max_y = min(min_y, y), max(max_y, y)
+
+    fill_ratio = content_pixels / total_pixels if total_pixels > 0 else 0
+    # 内容的实际宽高比
+    content_w = max_x - min_x if max_x > min_x else pw_full
+    content_h = max_y - min_y if max_y > min_y else ph_full
 
     for sku in skus:
         try:
             if not sku.template.image:
                 continue
 
-            # 读取模板图
             template_img = Image.open(sku.template.image).convert('RGBA')
-
-            # 计算印花在T恤上的位置和大小（居中偏上，约占40%宽度）
             tw, th = template_img.size
-            pw = int(tw * 0.4)
-            ph = int(print_img.height * (pw / print_img.width))
-            resized_print = print_img.resize((pw, ph), Image.LANCZOS)
 
-            # 位置：水平居中，垂直约30%处
-            px = (tw - pw) // 2
-            py = int(th * 0.3)
+            if fill_ratio < 0.3:
+                # 小图案（孤立元素如动物、logo）：裁切到内容边界，占 T 恤宽度的 25-35%
+                cropped = print_img.crop((min_x-10, min_y-10, max_x+10, max_y+10))
+                pw = int(tw * 0.28)
+                ph = int(content_h * (pw / content_w))
+                resized = cropped.resize((pw, ph), Image.LANCZOS)
+                px = (tw - pw) // 2
+                py = int(th * 0.22)  # 胸上位
+            elif fill_ratio < 0.6:
+                # 中等图案：占 T 恤宽度的 30-40%
+                pw = int(tw * 0.35)
+                ph = int(ph_full * (pw / pw_full))
+                resized = print_img.resize((pw, ph), Image.LANCZOS)
+                px = (tw - pw) // 2
+                py = int(th * 0.25)
+            else:
+                # 满版图案：占 T 恤宽度的 55-65%
+                pw = int(tw * 0.60)
+                ph = int(ph_full * (pw / pw_full))
+                resized = print_img.resize((pw, ph), Image.LANCZOS)
+                px = (tw - pw) // 2
+                py = int(th * 0.2)
 
-            # 合成
             result = template_img.copy()
-            result.paste(resized_print, (px, py), resized_print)
+            result.paste(resized, (px, py), resized)
 
-            # 保存
             buf = io.BytesIO()
             result.save(buf, format='PNG')
             buf.seek(0)
