@@ -558,7 +558,12 @@ def _generate_single_print(pattern_id, product_id, variant_index=0):
 
     if result.images:
         img = result.images[0]
-        # ComfyUI 工作流已包含 BriaRemoveImageBackground，输出即为透明 PNG
+        # rembg alpha_matting 高精度去背景
+        from rembg import remove, new_session
+        img = remove(img.convert('RGBA'), alpha_matting=True,
+                     alpha_matting_foreground_threshold=200,
+                     alpha_matting_background_threshold=50,
+                     alpha_matting_erode_size=4)
         buf = io_mod.BytesIO()
         img.save(buf, format='PNG')
         buf.seek(0)
