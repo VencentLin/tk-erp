@@ -205,76 +205,124 @@ def category_list(request):
 
 @staff_required
 def category_upload(request):
-    """上传图集 → 去重 → 豆包分析 → 创建/更新分类"""
-    ctx = {'results': None, 'error': None}
-
+    """上传图集 → 后台去重 → 豆包分析 → 创建/更新分类"""
     if request.method == 'POST':
-        try:
-            files = request.FILES.getlist('images')
-            excel_file = request.FILES.get('excel_file')
+        files = request.FILES.getlist('images')
+        excel_file = request.FILES.get('excel_file')
 
-            if not files and not excel_file:
-                messages.error(request, '请上传图片或 Excel 文件')
-                return redirect('category_upload')
+        if not files and not excel_file:
+            messages.error(request, '请上传图片或 Excel 文件')
+            return redirect('category_upload')
 
-            # Step 1: 收集 + 去重
-            excel_data = excel_file.read() if (excel_file and excel_file.size > 0) else None
-            from apps.categories.batch_import import batch_collect_images
-            results, unique_images = batch_collect_images(files=files if files else None, excel_file=excel_data)
+        # 保存文件数据到内存（因为后台线程不能访问 request.FILES）
+        files_data = []
+        for f in files:
+            if f.size > 0:
+                files_data.append({'name': f.name, 'data': f.read()})
+        excel_data = excel_file.read() if (excel_file and excel_file.size > 0) else None
 
-            ok_count = sum(1 for r in results if r.status == 'ok')
-            dup_count = sum(1 for r in results if r.status == 'duplicate')
-            err_count = sum(1 for r in results if r.status == 'error')
+        # 创建任务
+        from apps.categories.models import ImportTask
+        task = ImportTask.objects.create(status='pending', progress='准备分析...')
+        task.progress = '任务已创建，等待执行...'
+        task.save()
 
-            if unique_images:
-                # Step 2: 豆包分析分类
-                categories = _analyze_image_collection(unique_images)
-                created_count, updated_count = 0, 0
-                for cat_data in categories:
-                    slug = cat_data['name'].lower().replace(' ', '-').replace('/', '-')
-                    existing = PrintCategory.objects.filter(
-                        Q(name__iexact=cat_data['name']) | Q(slug=slug)
-                    ).first()
-                    if existing:
-                        existing.keywords = ', '.join(set(
-                            existing.keywords.split(', ') + cat_data['keywords']
-                        ))
-                        existing.print_prompt = cat_data['print_prompt']
-                        existing.extra_prompt = cat_data.get('extra_prompt', '')
-                        existing.save()
-                        _update_category_md(existing)
-                        updated_count += 1
-                    else:
-                        cat = PrintCategory.objects.create(
-                            name=cat_data['name'], slug=slug,
-                            keywords=', '.join(cat_data['keywords']),
-                            print_prompt=cat_data['print_prompt'],
-                            extra_prompt=cat_data.get('extra_prompt', ''),
-                        )
-                        _create_category_md(cat)
-                        created_count += 1
+        # 后台执行
+        threading.Thread(target=_run_category_import, args=(task.id, files_data, excel_data, request.user.username),
+                         daemon=True).start()
 
-                ctx['collected'] = ok_count
-                ctx['duplicates'] = dup_count
-                ctx['errors'] = err_count
-                ctx['created'] = created_count
-                ctx['updated'] = updated_count
-                messages.success(request,
-                    f'收集 {ok_count} 张 (去重{dup_count}) → {created_count} 新分类 + {updated_count} 更新')
-            else:
-                ctx['collected'] = 0
-                ctx['duplicates'] = dup_count
-                ctx['errors'] = err_count
-                messages.warning(request, f'没有新图片（去重{dup_count}张，失败{err_count}张）')
+        return redirect('category_task_status', task_id=task.id)
 
-            if ok_count <= 50:
-                ctx['results'] = results
+    return render(request, 'dashboard/category_upload.html', {})
 
-        except Exception as e:
-            import traceback
-            ctx['error'] = f'{type(e).__name__}: {e}\n{traceback.format_exc()}'
 
-    return render(request, 'dashboard/category_upload.html', ctx)
+def _run_category_import(task_id, files_data, excel_data, username):
+    """后台执行分类导入"""
+    from apps.categories.models import ImportTask
+    task = ImportTask.objects.get(id=task_id)
+    task.status = 'processing'
+    task.progress = 'Step 1/4: 收集图片...'
+    task.save()
+
+    try:
+        # Step 1: 构建文件对象列表用于去重
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        uploaded_files = []
+        for fd in files_data:
+            uploaded_files.append(SimpleUploadedFile(fd['name'], fd['data']))
+
+        # Step 2: 去重
+        from apps.categories.batch_import import batch_collect_images
+        task.progress = 'Step 2/4: 查重过滤中...'
+        task.save()
+        results, unique_images = batch_collect_images(
+            files=uploaded_files if uploaded_files else None,
+            excel_file=excel_data,
+        )
+
+        ok_count = sum(1 for r in results if r.status == 'ok')
+        dup_count = sum(1 for r in results if r.status == 'duplicate')
+        err_count = sum(1 for r in results if r.status == 'error')
+
+        task.result = {'collected': ok_count, 'duplicates': dup_count, 'errors': err_count,
+                       'created': 0, 'updated': 0}
+        task.progress = f'Step 3/4: 收集 {ok_count} 张，去重 {dup_count} 张，豆包分析中...'
+        task.save()
+
+        if unique_images:
+            # Step 3: 豆包分析分类
+            categories = _analyze_image_collection(unique_images)
+            task.progress = 'Step 3/4: 豆包已识别分类，创建中...'
+            task.save()
+
+            created_count, updated_count = 0, 0
+            for cat_data in categories:
+                slug = cat_data['name'].lower().replace(' ', '-').replace('/', '-')
+                existing = PrintCategory.objects.filter(
+                    Q(name__iexact=cat_data['name']) | Q(slug=slug)
+                ).first()
+                if existing:
+                    existing.keywords = ', '.join(set(existing.keywords.split(', ') + cat_data['keywords']))
+                    existing.print_prompt = cat_data['print_prompt']
+                    existing.extra_prompt = cat_data.get('extra_prompt', '')
+                    existing.save()
+                    _update_category_md(existing)
+                    updated_count += 1
+                else:
+                    PrintCategory.objects.create(
+                        name=cat_data['name'], slug=slug,
+                        keywords=', '.join(cat_data['keywords']),
+                        print_prompt=cat_data['print_prompt'],
+                        extra_prompt=cat_data.get('extra_prompt', ''),
+                    )
+                    # .md file
+                    cat = PrintCategory.objects.get(slug=slug)
+                    _create_category_md(cat)
+                    created_count += 1
+
+            task.result = {'collected': ok_count, 'duplicates': dup_count, 'errors': err_count,
+                           'created': created_count, 'updated': updated_count}
+            task.progress = f'Step 4/4: 完成！{created_count} 新分类 + {updated_count} 更新'
+        else:
+            task.progress = f'完成：无新图片（去重 {dup_count} 张）'
+
+        task.status = 'done'
+        task.save()
+
+    except Exception as e:
+        import traceback
+        task.status = 'error'
+        task.error_message = f'{type(e).__name__}: {e}\n{traceback.format_exc()}'
+        task.progress = '执行失败'
+        task.save()
+
+
+@staff_required
+def category_task_status(request, task_id):
+    """查看导入任务进度"""
+    from apps.categories.models import ImportTask
+    task = get_object_or_404(ImportTask, id=task_id)
+    return render(request, 'dashboard/category_task_status.html', {'task': task})
 
 @staff_required
 def category_edit(request, cid):

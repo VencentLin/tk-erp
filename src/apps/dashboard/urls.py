@@ -17,9 +17,10 @@ urlpatterns = [
     path('users/save/', views.user_save, name='user_save'),
     path('users/<int:uid>/delete/', views.user_delete, name='user_delete'),
 
-    # Categories (NEW)
+    # Categories
     path('categories/', views.category_list, name='category_list'),
     path('categories/upload/', views.category_upload, name='category_upload'),
+    path('categories/task/<int:task_id>/', views.category_task_status, name='category_task_status'),
     path('categories/<int:cid>/edit/', views.category_edit, name='category_edit'),
     path('categories/<int:cid>/delete/', views.category_delete, name='category_delete'),
 

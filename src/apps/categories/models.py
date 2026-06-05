@@ -1,6 +1,23 @@
 from django.db import models
 
 
+class ImportTask(models.Model):
+    """分类导入任务 — 追踪进度"""
+    STATUS_CHOICES = [
+        ('pending', '等待中'), ('processing', '执行中'),
+        ('done', '已完成'), ('error', '失败'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    progress = models.TextField(blank=True, default='', help_text='当前步骤描述')
+    result = models.JSONField(default=dict, blank=True, help_text='导入结果')
+    error_message = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = '导入任务'
+        verbose_name_plural = '导入任务'
+
+
 class PrintCategory(models.Model):
     name = models.CharField(max_length=128, unique=True, verbose_name='分类名')
     slug = models.SlugField(max_length=128, unique=True)

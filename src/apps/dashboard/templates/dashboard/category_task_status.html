@@ -1,0 +1,54 @@
+{% extends "dashboard/base.html" %}
+{% block title %}导入进度 - TK-ERP{% endblock %}
+
+{% block extra_head %}
+{% if task.status == 'processing' or task.status == 'pending' %}
+<meta http-equiv="refresh" content="2">
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="topbar"><h5>📤 导入进度</h5><a href="{% url 'category_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
+
+<div class="row justify-content-center"><div class="col-lg-8">
+    <div class="card border-0 shadow-sm" style="border-radius:12px;">
+        <div class="card-body p-4 text-center">
+
+            {% if task.status == 'processing' or task.status == 'pending' %}
+            <div class="spinner-border text-primary mb-3" style="width:64px;height:64px;border-width:5px;" role="status"></div>
+            <h4>⏳ {{ task.progress }}</h4>
+            <div class="progress mt-3" style="height:8px;border-radius:4px;max-width:500px;margin:0 auto;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%;"></div>
+            </div>
+            <small class="text-muted mt-3 d-block">页面每 2 秒自动刷新，请勿关闭</small>
+
+            {% elif task.status == 'done' %}
+            <i class="bi bi-check-circle" style="font-size:64px;color:#059669;"></i>
+            <h4 class="mt-3">✅ 导入完成</h4>
+            <p class="text-muted">{{ task.progress }}</p>
+
+            {% with r=task.result %}
+            <div class="row g-3 mt-2">
+                {% if r.collected %}<div class="col-3"><div class="stat-card"><div class="icon" style="background:#d1fae5;"><i class="bi bi-check-lg" style="color:#059669;"></i></div><div><div class="value">{{ r.collected }}</div><div class="label">收集</div></div></div></div>{% endif %}
+                {% if r.duplicates %}<div class="col-3"><div class="stat-card"><div class="icon" style="background:#fef3c7;"><i class="bi bi-arrow-repeat" style="color:#d97706;"></i></div><div><div class="value">{{ r.duplicates }}</div><div class="label">去重</div></div></div></div>{% endif %}
+                {% if r.created %}<div class="col-3"><div class="stat-card"><div class="icon" style="background:#d1fae5;"><i class="bi bi-plus-lg" style="color:#059669;"></i></div><div><div class="value">{{ r.created }}</div><div class="label">新分类</div></div></div></div>{% endif %}
+                {% if r.updated %}<div class="col-3"><div class="stat-card"><div class="icon" style="background:#dbeafe;"><i class="bi bi-pencil" style="color:#2563eb;"></i></div><div><div class="value">{{ r.updated }}</div><div class="label">更新</div></div></div></div>{% endif %}
+            </div>
+            {% endwith %}
+
+            <div class="mt-4">
+                <a href="{% url 'category_list' %}" class="btn btn-primary rounded-pill">查看分类</a>
+                <a href="{% url 'category_upload' %}" class="btn btn-outline-secondary rounded-pill">继续上传</a>
+            </div>
+
+            {% elif task.status == 'error' %}
+            <i class="bi bi-x-circle" style="font-size:64px;color:#dc2626;"></i>
+            <h4 class="mt-3 text-danger">❌ 导入失败</h4>
+            <pre style="font-size:12px;white-space:pre-wrap;text-align:left;max-height:300px;overflow-y:auto;background:#f8f9fa;padding:15px;border-radius:8px;">{{ task.error_message }}</pre>
+            <a href="{% url 'category_upload' %}" class="btn btn-outline-primary rounded-pill mt-3">重试</a>
+            {% endif %}
+
+        </div>
+    </div>
+</div></div>
+{% endblock %}
