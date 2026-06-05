@@ -551,8 +551,14 @@ def _run_generation_v2(product_id, variant_index):
     for sku in skus:
         try:
             prompt = _build_product_prompt(sku.template, category, bg)
+            neg = getattr(category, 'negative_prompt', '') or (
+                'low quality, blurry, anime, cartoon, childish, cute style, '
+                'plastic fabric, polyester texture, oversaturated, bad anatomy, '
+                'deformed clothing, cropped garment, watermark, logo distortion, low resolution'
+            )
             result = provider.generate_image(prompt=prompt, params={
-                'seed': seed, 'steps': 25, 'cfg_scale': 7.5, 'width': 1024, 'height': 1024,
+                'seed': seed, 'steps': 30, 'cfg_scale': 7.5, 'width': 1024, 'height': 1024,
+                'negative_prompt': neg,
             })
             if result.images:
                 img = result.images[0]
@@ -573,10 +579,15 @@ def _run_generation_v2(product_id, variant_index):
 
 def _build_product_prompt(template, category, background):
     return (
-        f"{template.prompt_body or 'oversized t-shirt'}, {template.fabric or 'premium cotton'}, "
+        f"young streetwear fashion model wearing {template.prompt_body or 'oversized t-shirt'}, "
+        f"{template.fabric or 'premium heavyweight cotton, 230gsm'}, "
         f"{category.print_prompt} graphic print centered on chest, "
-        f"{background}, soft indoor lighting, commercial apparel photography, "
-        f"front view, center composition, 85mm lens, ultra realistic, 8k"
+        f"natural fabric folds and wrinkles, realistic cotton texture, "
+        f"{background}, soft indoor lighting, soft ambient light, natural daylight, "
+        f"high detail fabric texture, commercial apparel photography, "
+        f"ecommerce product shot, fashion catalog shot, "
+        f"front view, center composition, 85mm lens, "
+        f"hyper realistic, photorealism, 8k, masterpiece"
     )
 
 def _generate_text_v2(product_id):
