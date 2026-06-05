@@ -201,12 +201,11 @@ def template_upload(request):
         color = request.POST.get('color', 'white')
         image = request.FILES.get('image')
         fabric = request.POST.get('fabric', '')
-        fit_style = request.POST.get('fit_style', 'Oversized')
         sizes = request.POST.get('sizes', 'XS,S,M,L,XL,XXL,3XL,4XL')
 
         if image and name:
-            # 豆包分析版型
-            prompt_body = _analyze_template(image.read())
+            # 豆包分析版型（返回 prompt_body 和 fit_style）
+            prompt_body, fit_style = _analyze_template(image.read())
             tpl = TShirtTemplate.objects.create(
                 name=name, color=color, image=image,
                 prompt_body=prompt_body, fabric=fabric, fit_style=fit_style,
