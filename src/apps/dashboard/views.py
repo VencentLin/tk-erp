@@ -205,12 +205,30 @@ def category_list(request):
 
 @staff_required
 def category_upload(request):
-    """上传图集 → 豆包分析 → 创建/更新分类"""
+    """上传图集 → 去重 → 豆包分析 → 创建/更新分类"""
+    ctx = {'results': None, 'error': None}
+
     if request.method == 'POST':
-        files = request.FILES.getlist('images')
-        if files:
-            try:
-                categories = _analyze_image_collection(files)
+        try:
+            files = request.FILES.getlist('images')
+            excel_file = request.FILES.get('excel_file')
+
+            if not files and not excel_file:
+                messages.error(request, '请上传图片或 Excel 文件')
+                return redirect('category_upload')
+
+            # Step 1: 收集 + 去重
+            excel_data = excel_file.read() if (excel_file and excel_file.size > 0) else None
+            from apps.categories.batch_import import batch_collect_images
+            results, unique_images = batch_collect_images(files=files if files else None, excel_file=excel_data)
+
+            ok_count = sum(1 for r in results if r.status == 'ok')
+            dup_count = sum(1 for r in results if r.status == 'duplicate')
+            err_count = sum(1 for r in results if r.status == 'error')
+
+            if unique_images:
+                # Step 2: 豆包分析分类
+                categories = _analyze_image_collection(unique_images)
                 created_count, updated_count = 0, 0
                 for cat_data in categories:
                     slug = cat_data['name'].lower().replace(' ', '-').replace('/', '-')
@@ -235,12 +253,28 @@ def category_upload(request):
                         )
                         _create_category_md(cat)
                         created_count += 1
-                messages.success(request, f'创建 {created_count} 个分类，更新 {updated_count} 个分类')
-            except Exception as e:
-                import traceback
-                messages.error(request, f'分析失败: {e}')
-            return redirect('category_list')
-    return render(request, 'dashboard/category_upload.html')
+
+                ctx['collected'] = ok_count
+                ctx['duplicates'] = dup_count
+                ctx['errors'] = err_count
+                ctx['created'] = created_count
+                ctx['updated'] = updated_count
+                messages.success(request,
+                    f'收集 {ok_count} 张 (去重{dup_count}) → {created_count} 新分类 + {updated_count} 更新')
+            else:
+                ctx['collected'] = 0
+                ctx['duplicates'] = dup_count
+                ctx['errors'] = err_count
+                messages.warning(request, f'没有新图片（去重{dup_count}张，失败{err_count}张）')
+
+            if ok_count <= 50:
+                ctx['results'] = results
+
+        except Exception as e:
+            import traceback
+            ctx['error'] = f'{type(e).__name__}: {e}\n{traceback.format_exc()}'
+
+    return render(request, 'dashboard/category_upload.html', ctx)
 
 @staff_required
 def category_edit(request, cid):
@@ -271,12 +305,15 @@ def category_delete(request, cid):
     return redirect('category_list')
 
 def _analyze_image_collection(files) -> list:
-    """豆包分析图集，返回分类列表"""
+    """豆包分析图集（接受 bytes 列表或 Django UploadedFile 列表），返回分类列表"""
     import base64, requests, json as json_mod
     images_b64 = []
     for f in files[:10]:
-        f.seek(0)
-        images_b64.append(base64.b64encode(f.read()).decode())
+        if isinstance(f, bytes):
+            images_b64.append(base64.b64encode(f).decode())
+        else:
+            f.seek(0)
+            images_b64.append(base64.b64encode(f.read()).decode())
 
     content = []
     for img in images_b64:
