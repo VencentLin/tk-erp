@@ -22,7 +22,8 @@ class PrintCategory(models.Model):
     name = models.CharField(max_length=128, unique=True, verbose_name='分类名')
     slug = models.SlugField(max_length=128, unique=True)
     keywords = models.TextField(blank=True, default='', help_text='匹配关键词，逗号分隔')
-    print_prompt = models.TextField(blank=True, default='', help_text='核心印花提示词')
+    print_prompt = models.TextField(blank=True, default='', help_text='印花设计描述（纯印花，不含服装）')
+    style_context = models.TextField(blank=True, default='', help_text='场景/灯光/摄影风格（不含服装）')
     extra_prompt = models.TextField(blank=True, default='', help_text='额外提示词')
     negative_prompt = models.TextField(blank=True, default='',
         help_text='负面提示词')

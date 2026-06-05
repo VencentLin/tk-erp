@@ -181,7 +181,7 @@ def template_delete(request, tid):
     return redirect('template_list')
 
 def _analyze_template(image_data: bytes) -> str:
-    """豆包分析 T 恤模板，返回版型提示词"""
+    """V3 规范 Stage 1: 分析模板 → 生成 PRODUCT_IDENTITY"""
     import base64, requests, json as json_mod
     img_b64 = base64.b64encode(image_data).decode()
     resp = requests.post(
@@ -190,15 +190,37 @@ def _analyze_template(image_data: bytes) -> str:
         json={'model': 'doubao-seed-2.0-lite', 'messages': [{'role': 'user', 'content': [
             {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img_b64}'}},
             {'type': 'text', 'text': (
-                'Describe ONLY the physical attributes of this T-shirt in a few words (under 20 words). '
-                'Include: exact color name, fit style (oversized/regular/slim), neckline type, sleeve length. '
-                'CRITICAL: Do NOT use words like "plain", "blank", "solid", "empty", "isolated", or "background". '
-                'Do NOT describe the photo setup or background. '
-                'Example good output: "black oversized t-shirt, round neck, short sleeve"'
+                'Analyze this T-shirt image and output ONLY the following structured format.\n\n'
+                'PRODUCT_IDENTITY:\n'
+                'solid {color} {category},\n'
+                '{fit} fit,\n'
+                '{neckline},\n'
+                '{sleeve},\n'
+                '{fabric},\n'
+                '{fabric_weight} fabric,\n'
+                '{print_placement} graphic print,\n'
+                'realistic cotton texture,\n'
+                'natural fabric folds\n\n'
+                'RULES:\n'
+                '- color: use exact color name (black, white, gray, navy, beige, brown, green, olive, red, pink, purple, yellow, orange, sky_blue)\n'
+                '- category: t-shirt, polo, hoodie, sweatshirt, tank_top\n'
+                '- fit: oversized, regular, boxy, relaxed, slim\n'
+                '- neckline: crew neck, v neck, mock neck, polo collar, hooded\n'
+                '- sleeve: short sleeve, long sleeve, sleeveless\n'
+                '- fabric: cotton, heavyweight cotton, french terry, fleece, polyester, cotton blend\n'
+                '- fabric_weight: 230gsm, 280gsm, or omit if unknown\n'
+                '- print_placement: center chest, left chest, full front, back, full back, sleeve\n'
+                '- NEVER describe scene, lighting, photography, model, background, or mood\n'
+                '- NEVER use words like plain, blank, solid in the first line (solid is OK in color context)\n'
+                '- Output ONLY the PRODUCT_IDENTITY block, no other text'
             )}
-        ]}], 'max_tokens': 100}, timeout=60)
+        ]}], 'max_tokens': 150}, timeout=60)
     resp.raise_for_status()
-    return resp.json()['choices'][0]['message']['content'].strip()
+    text = resp.json()['choices'][0]['message']['content'].strip()
+    # Extract PRODUCT_IDENTITY block if wrapped
+    if 'PRODUCT_IDENTITY:' in text:
+        text = text.split('PRODUCT_IDENTITY:', 1)[1].strip()
+    return text
 
 # ============================================================
 # Category Management (NEW)
@@ -290,6 +312,7 @@ def _run_category_import(task_id, files_data, excel_data, username):
                 if existing:
                     existing.keywords = ', '.join(set(existing.keywords.split(', ') + cat_data['keywords']))
                     existing.print_prompt = cat_data['print_prompt']
+                    existing.style_context = cat_data.get('style_context', '')
                     existing.extra_prompt = cat_data.get('extra_prompt', '')
                     existing.save()
                     _update_category_md(existing)
@@ -299,6 +322,7 @@ def _run_category_import(task_id, files_data, excel_data, username):
                         name=cat_data['name'], slug=slug,
                         keywords=', '.join(cat_data['keywords']),
                         print_prompt=cat_data['print_prompt'],
+                        style_context=cat_data.get('style_context', ''),
                         extra_prompt=cat_data.get('extra_prompt', ''),
                     )
                     # .md file
@@ -374,16 +398,18 @@ def _analyze_image_collection(files) -> list:
     for img in images_b64:
         content.append({'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img}'}})
     content.append({'type': 'text', 'text': (
-        'Analyze these T-shirt print design images. Group them into distinct style categories (max 10). '
-        'For each category, return a JSON array:\n'
-        '[{"name": "Category Name", "keywords": ["kw1","kw2",...], '
-        '"print_prompt": "Detailed SD prompt for this print style", "extra_prompt": ""}]\n'
-        'CRITICAL RULES for print_prompt:\n'
-        '- Describe ONLY the print/graphic design itself (style, elements, technique, composition)\n'
-        '- DO NOT mention T-shirt color, fabric, or garment type\n'
-        '- DO NOT mention background or photo setting\n'
-        '- DO NOT mention print placement (front/back/chest)\n'
-        '- Example: "vintage floral pattern, watercolor style, roses and peonies, soft pastel tones, delicate line work"\n'
+        'Analyze these T-shirt product images. For each distinct style, output JSON:\n'
+        '[{\n'
+        '  "name": "Category Name",\n'
+        '  "keywords": ["kw1","kw2",...],\n'
+        '  "print_prompt": "describe ONLY the print/graphic design itself, do NOT mention T-shirt, fabric, color, background",\n'
+        '  "style_context": "describe ONLY the scene, lighting, photography style, model, mood, do NOT mention garment",\n'
+        '  "extra_prompt": ""\n'
+        '}]\n\n'
+        'CRITICAL RULES:\n'
+        'print_prompt: ONLY print design (style, elements, technique). NO garment/color/background.\n'
+        'style_context: ONLY environment (scene, lighting, photography, model, mood). NO garment.\n'
+        'Example style_context: "minimalist office interior, wood bookshelf, soft daylight, young model, commercial photography, 85mm lens, korean streetwear mood"\n'
         'Keywords in Chinese+English.'
     )})
 
@@ -568,10 +594,10 @@ def _run_generation_v2(product_id, variant_index):
         try:
             prompt = _build_product_prompt(sku.template, category, bg)
             neg = (getattr(category, 'negative_prompt', '') or '') + (
-                ', low quality, blurry, anime, cartoon, '
-                'plastic fabric, polyester, oversaturated, '
-                'bad anatomy, deformed clothing, watermark, logo, '
-                'low resolution'
+                ', low quality, blurry, anime, cartoon, childish, cute style, '
+                'plastic fabric, polyester texture, oversaturated, '
+                'bad anatomy, deformed clothing, cropped garment, '
+                'watermark, logo distortion, low resolution'
             )
             result = provider.generate_image(prompt=prompt, params={
                 'seed': seed, 'steps': 30, 'cfg_scale': 7.5, 'width': 1024, 'height': 1024,
@@ -596,18 +622,35 @@ def _run_generation_v2(product_id, variant_index):
         print(f'Text gen failed for {product_id}: {e}\n{traceback.format_exc()}')
 
 def _build_product_prompt(template, category, background):
-    color_name = template.get_color_display() if hasattr(template, 'get_color_display') else template.color
-    return (
-        f"ecommerce product photography, a single {color_name} t-shirt, "
-        f"{template.prompt_body or 'oversized t-shirt, round neck, short sleeve'}, "
-        f"{template.fabric or 'premium heavyweight cotton, 230gsm'}, "
-        f"features a {category.print_prompt} graphic print design on the front, "
-        f"natural fabric folds and wrinkles, realistic cotton texture, "
-        f"{background}, soft indoor lighting, natural daylight, "
-        f"commercial apparel photography, front view, flat lay, "
-        f"no person, no model, no mannequin, garment only, "
-        f"85mm lens, hyper realistic, photorealism, 8k, masterpiece"
+    """V3 三层拼接: PRODUCT_IDENTITY + STYLE_CONTEXT + PRESERVE_PRODUCT"""
+    # Layer 1: PRODUCT_IDENTITY (模板分析结果)
+    product_identity = template.prompt_body or (
+        f'solid {template.color} t-shirt,\n'
+        'oversized fit,\ncrew neck,\nshort sleeve,\nheavyweight cotton,\n'
+        '230gsm fabric,\ncenter chest graphic print,\nrealistic cotton texture,\nnatural fabric folds'
     )
+
+    # Layer 2: STYLE_CONTEXT (分类的场景/灯光/摄影)
+    style_context = getattr(category, 'style_context', '') or (
+        f'{background},\nsoft daylight,\ncommercial apparel photography,\n85mm lens,\nhigh detail'
+    )
+
+    # Layer 3: PRESERVE_PRODUCT (锁定产品属性)
+    preserve = (
+        'keep the exact same product category, '
+        'keep the exact same garment color, '
+        'keep the exact same garment silhouette, '
+        'keep the exact same fit, '
+        'keep the exact same neckline, '
+        'keep the exact same sleeve type, '
+        'keep the exact same fabric appearance, '
+        'keep the exact same print placement, '
+        'do not redesign the garment, '
+        'do not change clothing category, '
+        'do not replace the product'
+    )
+
+    return f'{product_identity},\n{category.print_prompt},\n{style_context},\n{preserve}'
 
 def _generate_text_v2(product_id):
     """用 DeepSeek 生成商品标题和描述"""
