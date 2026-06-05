@@ -19,8 +19,8 @@ INSTALLED_APPS = [
     'storages',
     'apps.accounts',
     'apps.core',
-    'apps.patterns',
     'apps.templates_app',
+    'apps.categories',   # NEW: V2 category-driven generation
     'apps.products',
     'apps.generation',
     'apps.export_app',

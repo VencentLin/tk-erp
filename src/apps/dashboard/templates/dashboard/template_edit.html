@@ -13,7 +13,7 @@
                 <img src="{{ template.image.url }}" style="max-width:100%; max-height:350px; border-radius:12px; display:block; margin:0 auto 20px;">
                 {% endif %}
                 <div class="mb-3"><label class="form-label">模板名称</label><input name="name" value="{{ template.name }}" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label">替换图片</label><input type="file" name="image" accept="image/*" class="form-control"></div>
+                <div class="mb-3"><label class="form-label">替换图片（上传后自动重新分析版型）</label><input type="file" name="image" accept="image/*" class="form-control"></div>
                 <div class="mb-3"><label class="form-label">颜色</label>
                     <select name="color" class="form-select">
                         {% for k, v in template.COLOR_CHOICES %}
@@ -21,6 +21,9 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="mb-3"><label class="form-label">版型提示词（豆包生成/手动修改）</label><textarea name="prompt_body" class="form-control" rows="3">{{ template.prompt_body }}</textarea></div>
+                <div class="mb-3"><label class="form-label">面料描述</label><input name="fabric" value="{{ template.fabric }}" class="form-control" placeholder="如 premium cotton, 230gsm"></div>
+                <div class="mb-3"><label class="form-label">可选尺码</label><input name="sizes" value="{{ template.sizes }}" class="form-control"></div>
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_active" {% if template.is_active %}checked{% endif %}><label class="form-check-label">启用</label></div>
             </div>
             <div class="card-footer bg-transparent text-end"><button type="submit" class="btn btn-primary rounded-pill">保存修改</button></div>

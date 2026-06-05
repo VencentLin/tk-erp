@@ -1,0 +1,34 @@
+{% extends "dashboard/base.html" %}
+{% block title %}分类管理 - TK-ERP{% endblock %}
+{% block content %}
+<div class="topbar"><h5>📂 印花分类管理</h5>
+    <div>
+        <a href="{% url 'category_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-upload"></i> 上传图集分析</a>
+    </div>
+</div>
+<div class="row g-3">
+    {% for c in categories %}
+    <div class="col-xl-3 col-lg-4 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+            <div class="card-body">
+                <h6>{{ c.name }}{% if not c.is_active %} <span class="badge bg-secondary">已停用</span>{% endif %}</h6>
+                <p class="small text-muted mb-1">{{ c.print_prompt|truncatechars:80 }}</p>
+                <div class="mb-2">
+                    {% for kw in c.keywords|slice:":5" %}<span class="badge bg-light text-dark me-1">{{ kw }}</span>{% endfor %}
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <a href="{% url 'category_edit' c.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                <a href="{% url 'category_delete' c.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定停用？')"><i class="bi bi-x-circle"></i></a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <i class="bi bi-folder" style="font-size:64px;color:#ccc;"></i>
+        <p class="text-muted mt-3">还没有分类</p>
+        <a href="{% url 'category_upload' %}" class="btn btn-primary rounded-pill">上传图集创建分类</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -4,20 +4,27 @@
 {% block content %}
 <div class="topbar">
     <h5>👕 T恤模板管理</h5>
-    <a href="{% url 'template_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> 上传模板</a>
+    <div>
+        <a href="{% url 'template_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> 上传模板</a>
+    </div>
 </div>
 
 <div class="row g-3">
     {% for t in templates %}
-    <div class="col-lg-3 col-md-4 col-sm-6">
-        <div class="card border-0 shadow-sm" style="border-radius:12px; overflow:hidden;">
+    <div class="col-lg-4 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="border-radius:12px; overflow:hidden;">
             {% if t.image %}
-            <img src="{{ t.image.url }}" style="height:250px; object-fit:cover;">
+            <img src="{{ t.image.url }}" style="height:220px; object-fit:cover;">
             {% endif %}
             <div class="card-body">
-                <h6 class="card-title">{{ t.name }}</h6>
-                <span class="badge bg-light text-dark">{{ t.get_color_display }}</span>
-                <small class="text-muted d-block mt-1">{{ t.created_at|date:"Y-m-d" }}</small>
+                <h6 class="card-title">{{ t.name }} <span class="badge bg-light text-dark">{{ t.get_color_display }}</span></h6>
+                {% if t.fabric %}<p class="small text-muted mb-1"><i class="bi bi-puzzle"></i> {{ t.fabric|truncatechars:40 }}</p>{% endif %}
+                {% if t.prompt_body %}<p class="small text-muted mb-1"><i class="bi bi-cpu"></i> {{ t.prompt_body|truncatechars:80 }}</p>{% endif %}
+                <small class="text-muted d-block">{{ t.sizes }} | {{ t.created_at|date:"Y-m-d" }}</small>
+            </div>
+            <div class="card-footer bg-transparent border-0">
+                <a href="{% url 'template_edit' t.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                <a href="{% url 'template_delete' t.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定停用？')"><i class="bi bi-x-circle"></i></a>
             </div>
         </div>
     </div>

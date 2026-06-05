@@ -17,20 +17,19 @@ urlpatterns = [
     path('users/save/', views.user_save, name='user_save'),
     path('users/<int:uid>/delete/', views.user_delete, name='user_delete'),
 
-    # Pattern
-    path('patterns/', views.pattern_list, name='pattern_list'),
-    path('patterns/upload/', views.pattern_upload, name='pattern_upload'),
-    path('patterns/batch/', views.pattern_batch, name='pattern_batch'),
-    path('patterns/<int:pid>/edit/', views.pattern_edit, name='pattern_edit'),
-    path('patterns/<int:pid>/delete/', views.pattern_delete, name='pattern_delete'),
+    # Categories (NEW)
+    path('categories/', views.category_list, name='category_list'),
+    path('categories/upload/', views.category_upload, name='category_upload'),
+    path('categories/<int:cid>/edit/', views.category_edit, name='category_edit'),
+    path('categories/<int:cid>/delete/', views.category_delete, name='category_delete'),
 
-    # Template
+    # Templates
     path('templates/', views.template_list, name='template_list'),
     path('templates/upload/', views.template_upload, name='template_upload'),
     path('templates/<int:tid>/edit/', views.template_edit, name='template_edit'),
     path('templates/<int:tid>/delete/', views.template_delete, name='template_delete'),
 
-    # Product
+    # Products
     path('products/', views.product_list, name='product_list'),
     path('products/create/', views.product_create, name='product_create'),
     path('products/export/', views.product_export, name='product_export'),

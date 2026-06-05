@@ -1,0 +1,30 @@
+{% extends "dashboard/base.html" %}
+{% block title %}编辑分类 - TK-ERP{% endblock %}
+{% block content %}
+<div class="topbar"><h5>✏️ 编辑分类: {{ category.name }}</h5><a href="{% url 'category_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
+<div class="row g-4">
+    <div class="col-lg-7">
+        <form method="post">{% csrf_token %}
+            <div class="card border-0 shadow-sm" style="border-radius:12px;">
+                <div class="card-body">
+                    <div class="mb-3"><label class="form-label">分类名称</label><input name="name" value="{{ category.name }}" class="form-control" required></div>
+                    <div class="mb-3"><label class="form-label">匹配关键词（逗号分隔）</label><input name="keywords" value="{{ category.keywords }}" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">印花 Prompt</label><textarea name="print_prompt" class="form-control" rows="4">{{ category.print_prompt }}</textarea></div>
+                    <div class="mb-3"><label class="form-label">额外提示词</label><input name="extra_prompt" value="{{ category.extra_prompt }}" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">负面提示词</label><textarea name="negative_prompt" class="form-control" rows="3">{{ category.negative_prompt }}</textarea></div>
+                    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_active" {% if category.is_active %}checked{% endif %}><label class="form-check-label">启用</label></div>
+                </div>
+                <div class="card-footer bg-transparent text-end"><button type="submit" class="btn btn-primary rounded-pill">保存</button></div>
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm" style="border-radius:12px;">
+            <div class="card-header"><h6 class="mb-0">📄 .md 文件预览</h6></div>
+            <div class="card-body">
+                <pre style="font-size:12px;max-height:500px;overflow-y:auto;white-space:pre-wrap;background:#f8f9fa;padding:15px;border-radius:8px;">{{ md_content|default:'暂无文件' }}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
