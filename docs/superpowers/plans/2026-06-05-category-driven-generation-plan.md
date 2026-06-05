@@ -79,9 +79,8 @@ class TShirtTemplate(models.Model):
     name = models.CharField(max_length=128)
     image = models.ImageField(upload_to='templates/%Y/%m/', blank=True)
     color = models.CharField(max_length=16, choices=COLOR_CHOICES, default='white')
-    prompt_body = models.TextField(blank=True, default='', help_text='豆包生成的版型提示词')
+    prompt_body = models.TextField(blank=True, default='', help_text='豆包生成的版型提示词（含版型/颜色/领型/袖长）')
     fabric = models.CharField(max_length=256, blank=True, default='', help_text='面料描述，如 premium cotton, 230gsm')
-    fit_style = models.CharField(max_length=64, blank=True, default='Oversized', help_text='版型')
     sizes = models.CharField(max_length=128, blank=True, default='XS,S,M,L,XL,XXL,3XL,4XL', help_text='可选尺码，逗号分隔')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -204,11 +203,11 @@ def template_upload(request):
         sizes = request.POST.get('sizes', 'XS,S,M,L,XL,XXL,3XL,4XL')
 
         if image and name:
-            # 豆包分析版型（返回 prompt_body 和 fit_style）
-            prompt_body, fit_style = _analyze_template(image.read())
+            # 豆包分析版型（fit_style 已包含在 prompt_body 中）
+            prompt_body = _analyze_template(image.read())
             tpl = TShirtTemplate.objects.create(
                 name=name, color=color, image=image,
-                prompt_body=prompt_body, fabric=fabric, fit_style=fit_style,
+                prompt_body=prompt_body, fabric=fabric,
                 sizes=sizes,
             )
             messages.success(request, '模板上传成功，已自动分析版型')

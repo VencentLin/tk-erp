@@ -56,10 +56,9 @@
 | name | CharField | 模板名称 |
 | image | ImageField | T恤底图 |
 | color | CharField | 颜色 |
-| prompt_body | TextField | 豆包分析的版型提示词 |
+| prompt_body | TextField | 豆包分析的版型提示词 (含版型/颜色/领型) |
 | fabric | CharField | 手动输入的面料描述 |
-| fit_style | CharField | 版型 (Oversized/Regular/Slim) |
-| sizes | CharField | 可选尺码 (逗号分隔，如 S,M,L,XL,XXL) |
+| sizes | CharField | 可选尺码 (逗号分隔，如 XS,S,M,L,XL,XXL,3XL,4XL) |
 | is_active | BooleanField | 启用状态 |
 
 **生成产品时:** 产品的 `size_info` 自动填充所选模板的 `sizes`。
