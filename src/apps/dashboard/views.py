@@ -561,13 +561,12 @@ def _run_generation_v2(product_id, variant_index):
     for sku in skus:
         try:
             prompt = _build_product_prompt(sku.template, category, bg)
-            neg = getattr(category, 'negative_prompt', '') or ''
-            neg += (
-                ', low quality, blurry, anime, cartoon, plain blank t-shirt, solid color t-shirt without print, '
-                'no graphic, no design, empty t-shirt, wrong color t-shirt, white t-shirt, '
-                'human, person, model, face, body, mannequin head, plastic fabric, polyester texture, '
-                'oversaturated, bad anatomy, deformed clothing, cropped garment, watermark, logo distortion, '
-                'low resolution, multiple t-shirts, t-shirt with different color'
+            neg = (getattr(category, 'negative_prompt', '') or '') + (
+                ', low quality, blurry, anime, cartoon, plain blank t-shirt without any print, '
+                'no graphic no design empty shirt, wrong color t-shirt, '
+                'human face, human body, person, model, mannequin head, '
+                'plastic fabric, polyester, oversaturated, bad anatomy, deformed, '
+                'watermark, logo distortion, low resolution, multiple t-shirts'
             )
             result = provider.generate_image(prompt=prompt, params={
                 'seed': seed, 'steps': 30, 'cfg_scale': 7.5, 'width': 1024, 'height': 1024,
@@ -592,19 +591,18 @@ def _run_generation_v2(product_id, variant_index):
         print(f'Text gen failed for {product_id}: {e}\n{traceback.format_exc()}')
 
 def _build_product_prompt(template, category, background):
-    color_name = template.get_color_display() if hasattr(template, 'get_color_display') else template.color
-    return (
-        f"a single {color_name} {template.prompt_body or 'oversized t-shirt'}, "
-        f"{template.fabric or 'premium heavyweight cotton, 230gsm'}, "
-        f"ONLY {color_name} color fabric, MUST be {color_name} colored, "
-        f"{category.print_prompt} graphic print design visible on the t-shirt, "
-        f"natural fabric folds and wrinkles, realistic cotton texture, "
-        f"{background}, soft indoor lighting, soft ambient light, natural daylight, "
-        f"high detail fabric texture, commercial apparel photography, "
-        f"ecommerce product shot, flat lay photography, no person no model, "
-        f"front view, center composition, 85mm lens, "
-        f"hyper realistic, photorealism, 8k, masterpiece"
-    )
+        color_name = template.get_color_display() if hasattr(template, 'get_color_display') else template.color
+        return (
+            f"ecommerce product photography, a {color_name} t-shirt, "
+            f"{template.prompt_body or 'oversized t-shirt, round neck, short sleeve'}, "
+            f"{template.fabric or 'premium heavyweight cotton, 230gsm'}, "
+            f"features a {category.print_prompt} graphic print design on the front, "
+            f"natural fabric folds and wrinkles, realistic heavy cotton texture, "
+            f"{background}, soft indoor lighting, natural daylight, "
+            f"commercial apparel photography, front view, flat lay, "
+            f"no person, no model, no mannequin, garment only, "
+            f"85mm lens, hyper realistic, photorealism, 8k, masterpiece"
+        )
 
 def _generate_text_v2(product_id):
     """用 DeepSeek 生成商品标题和描述"""
