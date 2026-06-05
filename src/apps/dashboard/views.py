@@ -190,7 +190,7 @@ def _analyze_template(image_data: bytes) -> str:
         json={'model': 'doubao-seed-2.0-lite', 'messages': [{'role': 'user', 'content': [
             {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{img_b64}'}},
             {'type': 'text', 'text': 'Describe this T-shirt in English as a concise prompt for AI image generation. Include: color, fit style (oversized/regular/slim), neckline (round neck/V-neck), sleeve length, and any visible details. Keep it under 30 words.'}
-        ]}], 'max_tokens': 100}, timeout=30)
+        ]}], 'max_tokens': 100}, timeout=60)
     resp.raise_for_status()
     return resp.json()['choices'][0]['message']['content'].strip()
 
@@ -355,8 +355,9 @@ def category_delete(request, cid):
 def _analyze_image_collection(files) -> list:
     """豆包分析图集（接受 bytes 列表或 Django UploadedFile 列表），返回分类列表"""
     import base64, requests, json as json_mod
+    # 最多采样 5 张图避免超时和 token 超限
     images_b64 = []
-    for f in files[:10]:
+    for f in files[:5]:
         if isinstance(f, bytes):
             images_b64.append(base64.b64encode(f).decode())
         else:
@@ -378,7 +379,7 @@ def _analyze_image_collection(files) -> list:
         f'{settings.DEEPSEEK_BASE_URL}/chat/completions',
         headers={'Authorization': f'Bearer {settings.DEEPSEEK_API_KEY}', 'Content-Type': 'application/json'},
         json={'model': 'doubao-seed-2.0-lite', 'messages': [{'role': 'user', 'content': content}], 'max_tokens': 3000},
-        timeout=60)
+        timeout=180)  # 3 分钟超时
     resp.raise_for_status()
     text = resp.json()['choices'][0]['message']['content'].strip()
     if text.startswith('```'): text = text.split('\n', 1)[1].rsplit('```', 1)[0]
