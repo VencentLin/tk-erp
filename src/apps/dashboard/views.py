@@ -378,7 +378,13 @@ def _analyze_image_collection(files) -> list:
         'For each category, return a JSON array:\n'
         '[{"name": "Category Name", "keywords": ["kw1","kw2",...], '
         '"print_prompt": "Detailed SD prompt for this print style", "extra_prompt": ""}]\n'
-        'Focus on PRINT DESIGN only. Keywords in Chinese+English. Print prompt detailed enough for SD.'
+        'CRITICAL RULES for print_prompt:\n'
+        '- Describe ONLY the print/graphic design itself (style, elements, technique, composition)\n'
+        '- DO NOT mention T-shirt color, fabric, or garment type\n'
+        '- DO NOT mention background or photo setting\n'
+        '- DO NOT mention print placement (front/back/chest)\n'
+        '- Example: "vintage floral pattern, watercolor style, roses and peonies, soft pastel tones, delicate line work"\n'
+        'Keywords in Chinese+English.'
     )})
 
     resp = requests.post(

@@ -4,12 +4,12 @@
 极简风, 文字排版, 街头休闲, 撞色, minimalist, typography, streetwear
 
 ## 印花 Prompt
-Minimalist street style T-shirt print, scattered large-size letter typography layout, mint green and off-white solid color text on black base, simple clean modern street aesthetic, large full-back print for casual T-shirt, high contrast solid text design
+scattered large typography layout, clean modern sans-serif text, minimalist street style lettering, solid bold font design, high contrast graphic text
 
 ## 完整生成 Prompt
 {template_prompt}, {fabric}
 
-[印花: Minimalist street style T-shirt print, scattered large-size letter typography layout, mint green and off-white solid color text on black base, simple clean modern street aesthetic, large full-back print for casual T-shirt, high contrast solid text design]
+[印花: scattered large typography layout, clean modern sans-serif text, minimalist street style lettering, solid bold font design, high contrast graphic text]
 
 {background}, soft indoor lighting, commercial apparel photography,
 front view, center composition, 85mm lens, ultra realistic, 8k

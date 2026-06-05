@@ -4,12 +4,12 @@
 潮流卡通, 涂鸦风, 霓虹撞色, 潮牌, cartoon, neon pop, graffiti
 
 ## 印花 Prompt
-Trendy streetwear cartoon graffiti T-shirt print, bright neon color matching, distorted abstract beast character with X-shaped eyes, messy graffiti line details, front chest print on white cotton T-shirt, youthful pop aesthetic, matching of pink, orange and black outline
+distorted abstract cartoon character with X-shaped eyes, neon pop graffiti style, bold bright color blocking, messy sketch lines, youthful street art aesthetic
 
 ## 完整生成 Prompt
 {template_prompt}, {fabric}
 
-[印花: Trendy streetwear cartoon graffiti T-shirt print, bright neon color matching, distorted abstract beast character with X-shaped eyes, messy graffiti line details, front chest print on white cotton T-shirt, youthful pop aesthetic, matching of pink, orange and black outline]
+[印花: distorted abstract cartoon character with X-shaped eyes, neon pop graffiti style, bold bright color blocking, messy sketch lines, youthful street art aesthetic]
 
 {background}, soft indoor lighting, commercial apparel photography,
 front view, center composition, 85mm lens, ultra realistic, 8k
