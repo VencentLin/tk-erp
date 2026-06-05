@@ -583,14 +583,15 @@ def _run_generation_v2(product_id, variant_index):
         print(f'Text gen failed for {product_id}: {e}\n{traceback.format_exc()}')
 
 def _build_product_prompt(template, category, background):
+    color = template.get_color_display() if hasattr(template, 'get_color_display') else template.color
     return (
-        f"young streetwear fashion model wearing {template.prompt_body or 'oversized t-shirt'}, "
+        f"flat lay {template.prompt_body or 'oversized t-shirt'}, {color} color t-shirt, "
         f"{template.fabric or 'premium heavyweight cotton, 230gsm'}, "
         f"{category.print_prompt} graphic print centered on chest, "
         f"natural fabric folds and wrinkles, realistic cotton texture, "
         f"{background}, soft indoor lighting, soft ambient light, natural daylight, "
         f"high detail fabric texture, commercial apparel photography, "
-        f"ecommerce product shot, fashion catalog shot, "
+        f"ecommerce product shot, ghost mannequin, "
         f"front view, center composition, 85mm lens, "
         f"hyper realistic, photorealism, 8k, masterpiece"
     )
