@@ -59,7 +59,10 @@
 | prompt_body | TextField | 豆包分析的版型提示词 |
 | fabric | CharField | 手动输入的面料描述 |
 | fit_style | CharField | 版型 (Oversized/Regular/Slim) |
+| sizes | CharField | 可选尺码 (逗号分隔，如 S,M,L,XL,XXL) |
 | is_active | BooleanField | 启用状态 |
+
+**生成产品时:** 产品的 `size_info` 自动填充所选模板的 `sizes`。
 
 ### 3.2 PrintCategory（新建）
 

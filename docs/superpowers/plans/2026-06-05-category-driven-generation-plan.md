@@ -82,6 +82,7 @@ class TShirtTemplate(models.Model):
     prompt_body = models.TextField(blank=True, default='', help_text='豆包生成的版型提示词')
     fabric = models.CharField(max_length=256, blank=True, default='', help_text='面料描述，如 premium cotton, 230gsm')
     fit_style = models.CharField(max_length=64, blank=True, default='Oversized', help_text='版型')
+    sizes = models.CharField(max_length=128, blank=True, default='S,M,L,XL,XXL', help_text='可选尺码，逗号分隔')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -205,9 +206,11 @@ def template_upload(request):
         if image and name:
             # 豆包分析版型
             prompt_body = _analyze_template(image.read())
+            sizes = request.POST.get('sizes', 'S,M,L,XL,XXL')
             tpl = TShirtTemplate.objects.create(
                 name=name, color=color, image=image,
                 prompt_body=prompt_body, fabric=fabric, fit_style=fit_style,
+                sizes=sizes,
             )
             messages.success(request, '模板上传成功，已自动分析版型')
             return redirect('template_list')
@@ -422,6 +425,7 @@ def product_create(request):
 
             product = Product.objects.create(
                 country=country, category=category, template=main_template,
+                size_info=main_template.sizes,  # 自动带入模板尺码
                 status='processing'
             )
             for tid in template_ids:
