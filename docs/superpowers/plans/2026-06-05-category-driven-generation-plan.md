@@ -82,7 +82,7 @@ class TShirtTemplate(models.Model):
     prompt_body = models.TextField(blank=True, default='', help_text='豆包生成的版型提示词')
     fabric = models.CharField(max_length=256, blank=True, default='', help_text='面料描述，如 premium cotton, 230gsm')
     fit_style = models.CharField(max_length=64, blank=True, default='Oversized', help_text='版型')
-    sizes = models.CharField(max_length=128, blank=True, default='S,M,L,XL,XXL', help_text='可选尺码，逗号分隔')
+    sizes = models.CharField(max_length=128, blank=True, default='XS,S,M,L,XL,XXL,3XL,4XL', help_text='可选尺码，逗号分隔')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -200,13 +200,12 @@ def template_upload(request):
         name = request.POST.get('name', '')
         color = request.POST.get('color', 'white')
         image = request.FILES.get('image')
+        prompt_body = request.POST.get('prompt_body', '')
         fabric = request.POST.get('fabric', '')
         fit_style = request.POST.get('fit_style', 'Oversized')
+        sizes = request.POST.get('sizes', 'XS,S,M,L,XL,XXL,3XL,4XL')
 
         if image and name:
-            # 豆包分析版型
-            prompt_body = _analyze_template(image.read())
-            sizes = request.POST.get('sizes', 'S,M,L,XL,XXL')
             tpl = TShirtTemplate.objects.create(
                 name=name, color=color, image=image,
                 prompt_body=prompt_body, fabric=fabric, fit_style=fit_style,
