@@ -532,6 +532,10 @@ def product_export(request):
 # ============================================================
 def _run_generation_v2(product_id, variant_index):
     """V2: prompt组装 → txt2img → 多SKU"""
+    # 确保后台线程能找到项目根目录
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+
     from apps.products.models import ProductSKU
 
     product = Product.objects.select_related('category', 'template').get(id=product_id)
@@ -572,10 +576,11 @@ def _run_generation_v2(product_id, variant_index):
     # Text generation
     try:
         _generate_text_v2(product_id)
-        product.status = 'completed'; product.save()
+        Product.objects.filter(id=product_id).update(status='completed')
     except Exception as e:
-        product.status = 'text_pending'; product.save()
-        print(f'Text gen failed for {product_id}: {e}')
+        import traceback
+        Product.objects.filter(id=product_id).update(status='text_pending', error_message=str(e)[:500])
+        print(f'Text gen failed for {product_id}: {e}\n{traceback.format_exc()}')
 
 def _build_product_prompt(template, category, background):
     return (
