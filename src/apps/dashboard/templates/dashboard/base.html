@@ -87,6 +87,9 @@
         <a href="{% url 'user_list' %}" class="nav-link {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-people"></i> <span>用户管理</span>
         </a>
+        <a href="{% url 'preset_list' %}" class="nav-link {% if 'preset' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-file-text"></i> <span>提示词预设</span>
+        </a>
         <a href="{% url 'category_list' %}" class="nav-link {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-folder"></i> <span>分类管理</span>
         </a>

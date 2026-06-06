@@ -22,35 +22,75 @@
 <a href="{% url 'category_upload' %}" class="btn btn-outline-primary rounded-pill">重试</a>
 {% else %}
 <div class="row justify-content-center"><div class="col-lg-8">
-    <form method="post" enctype="multipart/form-data" id="uploadForm">{% csrf_token %}
-        <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
-            <div class="card-body p-4 text-center">
-                <i class="bi bi-images" style="font-size:64px;color:#667eea;"></i>
-                <h5 class="mt-3">📁 上传图片文件</h5>
-                <p class="text-muted">支持多选图片、拖拽文件夹</p>
-                <input type="file" name="images" multiple accept="image/*" class="form-control mb-2" style="max-width:400px;margin:0 auto;" id="imgInput">
-                <small class="text-muted">系统会自动去重，只保留唯一图片进行分析</small>
-            </div>
-        </div>
 
-        <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
-            <div class="card-body p-4 text-center" style="background:#fefce8;">
-                <i class="bi bi-file-earmark-spreadsheet" style="font-size:64px;color:#d97706;"></i>
-                <h5 class="mt-3">📊 或上传 Excel 表格</h5>
-                <p class="text-muted">自动识别表格中的图片链接并下载，自动去重</p>
-                <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control mb-2" style="max-width:400px;margin:0 auto;" id="excelInput">
-            </div>
-        </div>
-
-        <div class="text-center">
-            <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5" id="submitBtn"><i class="bi bi-magic"></i> 开始分析</button>
-        </div>
+    <form method="post" enctype="multipart/form-data" id="uploadForm" style="display:none;">{% csrf_token %}
+        <input type="file" name="images" multiple accept="image/*" id="imgInput">
     </form>
+
+    {# 拖拽上传区域 #}
+    <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;" id="dropZone">
+        <div class="card-body p-5 text-center" style="border:3px dashed #667eea;border-radius:12px;background:#f8f9ff;cursor:pointer;transition:all .2s;">
+            <i class="bi bi-cloud-upload" style="font-size:64px;color:#667eea;"></i>
+            <h5 class="mt-3">📁 拖拽图片或文件夹到这里</h5>
+            <p class="text-muted mb-3">支持拖拽整个文件夹（含子文件夹），自动识别子文件夹名作为分类建议</p>
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-primary rounded-pill" onclick="document.getElementById('fileInput').click()">
+                    <i class="bi bi-folder"></i> 选择文件夹
+                </button>
+                <button type="button" class="btn btn-outline-primary rounded-pill" onclick="document.getElementById('multiFileInput').click()">
+                    <i class="bi bi-images"></i> 选择多个文件
+                </button>
+            </div>
+            <input type="file" id="fileInput" webkitdirectory style="display:none;" onchange="handleFolderSelect(this)">
+            <input type="file" id="multiFileInput" multiple accept="image/*" style="display:none;" onchange="handleFileSelect(this)">
+        </div>
+    </div>
+
+    {# 已选文件列表 #}
+    <div id="fileList" style="display:none;">
+        <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">📋 已选文件（<span id="fileCount">0</span> 张）</h6>
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" onclick="clearAll()">清空</button>
+            </div>
+            <div class="card-body p-3" style="max-height:200px;overflow-y:auto;">
+                <div id="folderGroups"></div>
+            </div>
+        </div>
+
+        <div class="text-center mb-3">
+            <button type="button" class="btn btn-primary btn-lg rounded-pill px-5" id="submitBtn" onclick="doSubmit()">
+                <i class="bi bi-magic"></i> 开始分析（<span id="submitCount">0</span> 张）
+            </button>
+        </div>
+    </div>
+
+    <hr class="my-4">
+
+    <div class="card border-0 shadow-sm mb-3" style="border-radius:12px;" id="excelCard">
+        <div class="card-body p-4 text-center" style="background:#fefce8;">
+            <i class="bi bi-file-earmark-spreadsheet" style="font-size:64px;color:#d97706;"></i>
+            <h5 class="mt-3">📊 或上传 Excel 表格</h5>
+            <p class="text-muted">自动识别表格中的图片链接并下载，自动去重</p>
+            <input type="file" name="excel_file" accept=".xlsx,.xls" class="form-control mb-2" style="max-width:400px;margin:0 auto;" id="excelInput" form="excelForm">
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="excelForm" style="display:none;">{% csrf_token %}
+        <input type="file" name="excel_file" accept=".xlsx,.xls" id="excelInputHidden">
+    </form>
+
+    <div class="text-center mb-4">
+        <button type="button" class="btn btn-warning btn-lg rounded-pill px-5" id="excelBtn" onclick="submitExcel()">
+            <i class="bi bi-file-earmark-spreadsheet"></i> 上传 Excel 分析
+        </button>
+    </div>
+
 </div></div>
 {% endif %}
 
 {# Loading overlay #}
-<div id="loadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;">
+<div id="loadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:9999;flex-direction:column;align-items:center;justify-content:center;">
     <div style="background:#fff;border-radius:16px;padding:40px;text-align:center;max-width:450px;">
         <div class="spinner-border text-primary mb-3" style="width:48px;height:48px;border-width:4px;" role="status"></div>
         <h5>🔍 豆包正在分析图集...</h5>
@@ -65,13 +105,215 @@
 </div>
 
 <script>
-document.getElementById('uploadForm').addEventListener('submit', function() {
-    var hasImages = document.getElementById('imgInput').files.length > 0;
-    var hasExcel = document.getElementById('excelInput').files.length > 0;
-    if (hasImages || hasExcel) {
-        document.getElementById('loadingOverlay').style.display = 'flex';
-        document.getElementById('submitBtn').disabled = true;
-    }
+let selectedFiles = [];  // {file, folderName, relativePath}
+
+// ========== 拖拽处理 ==========
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.querySelector('.card-body').style.background = '#eef0ff';
+    this.querySelector('.card-body').style.borderColor = '#4f46e5';
 });
+dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.querySelector('.card-body').style.background = '#f8f9ff';
+    this.querySelector('.card-body').style.borderColor = '#667eea';
+});
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.querySelector('.card-body').style.background = '#f8f9ff';
+    this.querySelector('.card-body').style.borderColor = '#667eea';
+
+    const items = e.dataTransfer.items;
+    if (!items) return;
+    processDroppedItems(items);
+});
+
+// ========== 文件夹选择 ==========
+function handleFolderSelect(input) {
+    if (input.files.length > 0) {
+        processFolderFiles(input.files);
+        input.value = '';
+    }
+}
+
+function handleFileSelect(input) {
+    if (input.files.length > 0) {
+        const files = Array.from(input.files);
+        for (const f of files) {
+            selectedFiles.push({file: f, folderName: '', relativePath: f.name});
+        }
+        input.value = '';
+        renderFileList();
+    }
+}
+
+async function processDroppedItems(items) {
+    const entries = [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+            if (entry) {
+                entries.push(entry);
+            }
+        }
+    }
+
+    if (entries.length === 0) return;
+
+    const allFiles = [];
+    for (const entry of entries) {
+        await collectFiles(entry, allFiles);
+    }
+
+    for (const {file, folderName} of allFiles) {
+        if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(file.name)) {
+            selectedFiles.push({file: file, folderName: folderName, relativePath: folderName ? folderName + '/' + file.name : file.name});
+        }
+    }
+    renderFileList();
+}
+
+async function collectFiles(entry, result, parentFolder) {
+    if (entry.isFile) {
+        const file = await getFile(entry);
+        result.push({file: file, folderName: parentFolder || ''});
+    } else if (entry.isDirectory) {
+        const folderName = entry.name;
+        const reader = entry.createReader();
+        const entries = await readAllEntries(reader);
+        for (const child of entries) {
+            await collectFiles(child, result, folderName);
+        }
+    }
+}
+
+function readAllEntries(reader) {
+    return new Promise((resolve) => {
+        const all = [];
+        function readBatch() {
+            reader.readEntries((entries) => {
+                if (entries.length === 0) {
+                    resolve(all);
+                } else {
+                    all.push(...entries);
+                    readBatch();
+                }
+            });
+        }
+        readBatch();
+    });
+}
+
+function getFile(entry) {
+    return new Promise((resolve) => {
+        entry.file(resolve);
+    });
+}
+
+// ========== 文件夹选择（input webkitdirectory）==========
+function processFolderFiles(fileList) {
+    const MAX_FILES = 3000;
+    if (fileList.length > MAX_FILES) {
+        alert('文件夹包含 ' + fileList.length + ' 个文件，超过限制 ' + MAX_FILES + ' 张。请拆分成多个批次上传。');
+        return;
+    }
+    const folderMap = {};
+    for (const f of fileList) {
+        if (!f.type.startsWith('image/') && !/\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(f.name)) continue;
+        const path = f.webkitRelativePath || f.name;
+        const parts = path.split('/');
+        let folderName = '';
+        if (parts.length > 1) {
+            folderName = parts[0];  // 顶层文件夹名
+        }
+        selectedFiles.push({file: f, folderName: folderName, relativePath: path});
+    }
+    renderFileList();
+}
+
+// ========== 渲染文件列表 ==========
+function renderFileList() {
+    const fileList = document.getElementById('fileList');
+    const folderGroups = document.getElementById('folderGroups');
+    const fileCount = document.getElementById('fileCount');
+    const submitCount = document.getElementById('submitCount');
+
+    if (selectedFiles.length === 0) {
+        fileList.style.display = 'none';
+        return;
+    }
+
+    fileList.style.display = 'block';
+    fileCount.textContent = selectedFiles.length;
+    submitCount.textContent = selectedFiles.length;
+
+    // 按文件夹分组
+    const groups = {};
+    for (const item of selectedFiles) {
+        const key = item.folderName || '(根目录)';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
+    }
+
+    let html = '';
+    for (const [folder, files] of Object.entries(groups)) {
+        html += '<div class="mb-2"><strong>📁 ' + folder + '</strong> <span class="text-muted small">(' + files.length + ' 张)</span>';
+        html += '<div class="text-muted small ms-3">' + files.slice(0, 5).map(f => f.file.name).join(', ');
+        if (files.length > 5) html += ' ...等 ' + files.length + ' 张';
+        html += '</div></div>';
+    }
+    folderGroups.innerHTML = html;
+}
+
+function clearAll() {
+    selectedFiles = [];
+    renderFileList();
+}
+
+// ========== 提交 ==========
+function doSubmit() {
+    if (selectedFiles.length === 0) {
+        alert('请先选择图片文件');
+        return;
+    }
+
+    const form = document.getElementById('uploadForm');
+    const input = document.getElementById('imgInput');
+    const dt = new DataTransfer();
+
+    for (const item of selectedFiles) {
+        dt.items.add(item.file);
+    }
+    input.files = dt.files;
+
+    showLoading();
+    form.submit();
+}
+
+function submitExcel() {
+    const excelInput = document.getElementById('excelInput');
+    if (!excelInput.files.length) {
+        alert('请先选择 Excel 文件');
+        return;
+    }
+
+    const form = document.getElementById('excelForm');
+    const hiddenInput = document.getElementById('excelInputHidden');
+    const dt = new DataTransfer();
+    dt.items.add(excelInput.files[0]);
+    hiddenInput.files = dt.files;
+
+    showLoading();
+    form.submit();
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
 </script>
 {% endblock %}

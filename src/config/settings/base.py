@@ -89,6 +89,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# 文件上传限制 — 支持批量图集上传（100MB, 5000 files）
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+DATA_UPLOAD_MAX_NUMBER_FILES = 5000
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000
+
 # Celery
 CELERY_BROKER_URL = config('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = 'django-db'
@@ -111,7 +117,7 @@ AWS_QUERYSTRING_AUTH = False
 
 # AI provider settings
 COMFYUI_BASE_URL = config('COMFYUI_BASE_URL', default='http://localhost:7860')
-COMFYUI_MODEL = config('COMFYUI_MODEL', default='sd_xl_base_1.0_0.9vae.safetensors')
+COMFYUI_MODEL = config('COMFYUI_MODEL', default='juggernautXL_v9Rundiffusionphoto2.safetensors')
 OLLAMA_BASE_URL = config('OLLAMA_BASE_URL', default='http://localhost:11434')
 OLLAMA_MODEL = config('OLLAMA_MODEL', default='qwen2.5:14b')
 

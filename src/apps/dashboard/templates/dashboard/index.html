@@ -63,7 +63,11 @@
                             {% endfor %}
                         </td>
                         <td>{{ p.title|default:'待生成'|truncatechars:35 }}</td>
-                        <td><span class="badge bg-light text-dark">{{ p.category.name }}</span></td>
+                        <td>
+                            {% if p.prompt_preset %}<span class="badge bg-primary text-white">{{ p.prompt_preset.name }}</span>
+                            {% elif p.category %}<span class="badge bg-light text-dark">{{ p.category.name }}</span>
+                            {% else %}<span class="badge bg-light text-dark">-</span>{% endif %}
+                        </td>
                         <td><span class="badge bg-light text-dark">{{ p.country.name }}</span></td>
                         <td>{{ p.skus.count }}</td>
                         <td><span class="badge-status status-{{ p.status }}">{{ p.get_status_display }}</span></td>

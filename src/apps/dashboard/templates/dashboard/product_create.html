@@ -2,33 +2,201 @@
 {% block title %}创建产品 - TK-ERP{% endblock %}
 {% block content %}
 <div class="topbar"><h5>✨ 创建产品</h5><a href="{% url 'product_list' %}" class="btn btn-outline-secondary rounded-pill">← 产品库</a></div>
+
+{# 模式切换 #}
+<div class="mb-3">
+    <div class="btn-group" role="group">
+        <a href="?mode=direct" class="btn btn-{% if mode != 'pod' %}primary{% else %}outline-secondary{% endif %} rounded-pill">🤖 AI 直出商品图</a>
+        <a href="?mode=pod" class="btn btn-{% if mode == 'pod' %}primary{% else %}outline-secondary{% endif %} rounded-pill">🖨️ POD 贴图模式</a>
+    </div>
+    <input type="hidden" name="mode" value="{{ mode|default:'direct' }}">
+</div>
+
 <form method="post">{% csrf_token %}
+<input type="hidden" name="mode" value="{{ mode|default:'direct' }}">
     <div class="row g-4">
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm" style="border-radius:12px;"><div class="card-body">
+
+        {# 国家 #}
+        <div class="col-lg-2">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:12px;"><div class="card-body">
                 <h6 class="mb-3">🌏 国家</h6>
                 {% for c in countries %}<div class="form-check mb-2"><input class="form-check-input" type="radio" name="country" value="{{ c.code }}" id="ct_{{ c.code }}" required><label class="form-check-label" for="ct_{{ c.code }}">{{ c.name }}</label></div>{% endfor %}
             </div></div>
         </div>
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm" style="border-radius:12px;"><div class="card-body">
-                <h6 class="mb-3">👕 模板（多选=多SKU）</h6>
-                {% for t in templates %}<div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="templates" value="{{ t.id }}" id="tpl_{{ t.id }}"><label class="form-check-label" for="tpl_{{ t.id }}">{{ t.name }} <span class="badge bg-light text-dark">{{ t.color }}</span></label></div>{% endfor %}
+
+{% if mode == 'pod' %}
+        {# POD 模式：印花选择 + 模板选择 #}
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:12px;border:2px solid #10b981;"><div class="card-body">
+                <h6 class="mb-3">🎨 印花分类 <span class="badge bg-success">POD</span></h6>
+
+                {# POD 模板选择 #}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">👕 选择 POD 模板</label>
+                    <select name="template" class="form-select" required>
+                        <option value="">-- 选择模板 --</option>
+                        {% for t in pod_templates %}
+                        <option value="{{ t.id }}">{{ t.name }} ({{ t.get_color_display }}) {% if not t.print_area_width %}⚠ 未设置印花区{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    {% if not pod_templates %}
+                    <small class="text-danger">没有可用的 POD 模板，请先在模板管理中设置 POD 模板并框选印花区域</small>
+                    {% endif %}
+                </div>
+
+                {# 印花预设选择 — 按颜色分组 #}
+                <label class="form-label small fw-bold">📋 选择印花提示词</label>
+                <div style="max-height:280px;overflow-y:auto;">
+
+                {% if white_print %}
+                <div class="mb-2"><span class="badge bg-light text-dark border">⬜ 白色 T 恤印花</span></div>
+                {% for p in white_print %}
+                <div class="form-check mb-2 ms-2"><input class="form-check-input print-check" type="checkbox" name="print_preset" value="{{ p.id }}" id="pp_{{ p.id }}"><label class="form-check-label" for="pp_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
+                {% endfor %}
+                {% endif %}
+
+                {% if black_print %}
+                <div class="mb-2 mt-2"><span class="badge bg-dark">⬛ 黑色 T 恤印花</span></div>
+                {% for p in black_print %}
+                <div class="form-check mb-2 ms-2"><input class="form-check-input print-check" type="checkbox" name="print_preset" value="{{ p.id }}" id="pp_{{ p.id }}"><label class="form-check-label" for="pp_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
+                {% endfor %}
+                {% endif %}
+
+                {% if other_print %}
+                <div class="mb-2 mt-2"><span class="badge bg-secondary">其他印花</span></div>
+                {% for p in other_print %}
+                <div class="form-check mb-2 ms-2"><input class="form-check-input print-check" type="checkbox" name="print_preset" value="{{ p.id }}" id="pp_{{ p.id }}"><label class="form-check-label" for="pp_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
+                {% endfor %}
+                {% endif %}
+
+                {% if not white_print and not black_print and not other_print %}
+                <p class="text-muted">尚无印花预设，请运行 <code>python src\manage.py sync_print_prompts</code> 或在 <code>data/print_prompts/</code> 放入 .md 文件</p>
+                {% endif %}
+                </div>
             </div></div>
         </div>
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm" style="border-radius:12px;"><div class="card-body">
-                <h6 class="mb-3">📂 分类</h6>
-                {% for c in categories %}<div class="form-check mb-2"><input class="form-check-input" type="radio" name="category" value="{{ c.id }}" id="cat_{{ c.id }}" required><label class="form-check-label" for="cat_{{ c.id }}">{{ c.name }} <br><small class="text-muted">{{ c.print_prompt|truncatechars:60 }}</small></label></div>{% empty %}<p class="text-muted">暂无分类</p>{% endfor %}
+{% else %}
+        {# Direct 模式：原有产品图提示词选择 #}
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:12px;border:2px solid #667eea;"><div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">📂 分类 <span class="badge bg-primary">V7</span></h6>
+                    <small class="text-muted">AI 自动匹配 or 手动选择</small>
+                </div>
+
+                {# AI 分类上传 #}
+                <div class="mb-3 p-3" style="background:#f8f9ff;border-radius:8px;">
+                    <label class="form-label small fw-bold mb-1">🤖 上传印花图自动匹配分类</label>
+                    <div class="input-group input-group-sm">
+                        <input type="file" id="classifyImage" accept="image/*" class="form-control" onchange="autoClassify()">
+                        <span id="classifyStatus" class="input-group-text" style="display:none;"></span>
+                    </div>
+                </div>
+
+                {# 手动选择分类 — 按颜色分组 #}
+                <label class="form-label small fw-bold">📋 手动选择分类（.md 即 prompt）</label>
+                <div style="max-height:320px;overflow-y:auto;">
+
+                {% if white_presets %}
+                <div class="mb-2"><span class="badge bg-light text-dark border">⬜ 白色 T 恤提示词</span></div>
+                {% for p in white_presets %}
+                <div class="form-check mb-2 ms-2"><input class="form-check-input preset-check" type="checkbox" name="preset" value="{{ p.id }}" id="pr_{{ p.id }}"><label class="form-check-label" for="pr_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
+                {% endfor %}
+                {% endif %}
+
+                {% if black_presets %}
+                <div class="mb-2 mt-2"><span class="badge bg-dark">⬛ 黑色 T 恤提示词</span></div>
+                {% for p in black_presets %}
+                <div class="form-check mb-2 ms-2"><input class="form-check-input preset-check" type="checkbox" name="preset" value="{{ p.id }}" id="pr_{{ p.id }}"><label class="form-check-label" for="pr_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
+                {% endfor %}
+                {% endif %}
+
+                {% if other_presets %}
+                <div class="mb-2 mt-2"><span class="badge bg-secondary">其他提示词</span></div>
+                {% for p in other_presets %}
+                <div class="form-check mb-2 ms-2"><input class="form-check-input preset-check" type="checkbox" name="preset" value="{{ p.id }}" id="pr_{{ p.id }}"><label class="form-check-label" for="pr_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
+                {% endfor %}
+                {% endif %}
+
+                {% if not white_presets and not black_presets and not other_presets %}
+                <p class="text-muted">尚无预设，请先去「提示词预设」上传 .md 分类文件</p>
+                {% endif %}
+                </div>
             </div></div>
         </div>
+{% endif %}
+
+        {# 数量 + 创建 #}
         <div class="col-lg-3">
-            <div class="card border-0 shadow-sm" style="border-radius:12px;"><div class="card-body">
+            <div class="card border-0 shadow-sm h-100" style="border-radius:12px;"><div class="card-body text-center">
                 <h6 class="mb-3">🔢 数量</h6>
-                <input type="number" name="count" value="1" min="1" max="20" class="form-control mb-3" style="width:100px;">
-                <button type="submit" class="btn btn-primary btn-lg rounded-pill w-100"><i class="bi bi-stars"></i> 创建产品</button>
+                <input type="number" name="count" value="1" min="1" max="10" class="form-control mb-3" style="width:80px;margin:0 auto;">
+                <button type="submit" class="btn btn-primary btn-lg rounded-pill w-100" onclick="return validateForm()"><i class="bi bi-stars"></i> 创建并生成</button>
+                <small class="text-muted mt-2 d-block">
+                    {% if mode == 'pod' %}每个印花分类 × 数量 = 总产品数{% else %}每个分类 × 数量 = 总产品数{% endif %}
+                </small>
             </div></div>
         </div>
+
     </div>
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function validateForm() {
+    {% if mode == 'pod' %}
+    const checked = document.querySelectorAll('.print-check:checked');
+    const template = document.querySelector('select[name="template"]');
+    if (!template || !template.value) { alert('请选择 POD 模板'); return false; }
+    {% else %}
+    const checked = document.querySelectorAll('.preset-check:checked');
+    {% endif %}
+    const country = document.querySelector('input[name="country"]:checked');
+    if (!country) { alert('请选择国家'); return false; }
+    if (checked.length === 0) { alert('请至少选择一个分类'); return false; }
+    return true;
+}
+{% if mode != 'pod' %}
+async function autoClassify() {
+    const fileInput = document.getElementById('classifyImage');
+    const statusEl = document.getElementById('classifyStatus');
+    if (!fileInput.files.length) return;
+
+    statusEl.style.display = 'inline';
+    statusEl.textContent = '🔍 AI 分析中...';
+
+    const formData = new FormData();
+    formData.append('image', fileInput.files[0]);
+
+    try {
+        const resp = await fetch('{% url "preset_classify" %}', {
+            method: 'POST',
+            headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+            body: formData,
+        });
+        const data = await resp.json();
+
+        if (data.preset_id) {
+            const radio = document.getElementById('pr_' + data.preset_id);
+            if (radio) {
+                radio.checked = true;
+                radio.scrollIntoView({behavior: 'smooth', block: 'center'});
+                statusEl.textContent = '✅ 匹配: ' + data.preset_name;
+                statusEl.className = 'input-group-text text-success';
+            } else {
+                statusEl.textContent = '⚠️ 未找到匹配项';
+                statusEl.className = 'input-group-text text-warning';
+            }
+        } else {
+            statusEl.textContent = '❌ AI 返回: ' + (data.matched_name || '未知');
+            statusEl.className = 'input-group-text text-danger';
+        }
+    } catch (e) {
+        statusEl.textContent = '❌ 网络错误';
+        statusEl.className = 'input-group-text text-danger';
+    }
+}
+{% endif %}
+</script>
 {% endblock %}

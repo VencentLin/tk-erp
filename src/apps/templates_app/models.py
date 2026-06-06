@@ -12,6 +12,13 @@ class TShirtTemplate(models.Model):
     prompt_body = models.TextField(blank=True, default='', help_text='豆包生成的版型提示词（含版型/颜色/领型/袖长）')
     fabric = models.CharField(max_length=256, blank=True, default='', help_text='面料描述，如 premium cotton, 230gsm')
     sizes = models.CharField(max_length=128, blank=True, default='XS,S,M,L,XL,XXL,3XL,4XL', help_text='可选尺码，逗号分隔')
+    # POD 字段
+    is_pod_template = models.BooleanField(default=False, help_text='可用于 POD 贴图模式')
+    template_view = models.CharField(max_length=16, default='front', help_text='模板视图 (front only in v1)')
+    print_area_x = models.IntegerField(null=True, blank=True, help_text='印花区域 X 坐标 (px)')
+    print_area_y = models.IntegerField(null=True, blank=True, help_text='印花区域 Y 坐标 (px)')
+    print_area_width = models.IntegerField(null=True, blank=True, help_text='印花区域宽度 (px)')
+    print_area_height = models.IntegerField(null=True, blank=True, help_text='印花区域高度 (px)')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

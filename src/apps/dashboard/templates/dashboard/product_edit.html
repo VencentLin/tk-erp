@@ -21,7 +21,7 @@
                         <div class="col-md-6">
                             <div class="card" style="border-radius:10px;">
                                 <div class="card-header small">
-                                    <strong>SKU #{{ sku.id }}</strong> — {{ sku.template.name }} ({{ sku.template.get_color_display }})
+                                    <strong>SKU #{{ sku.id }}</strong> — {% if sku.template %}{{ sku.template.name }} ({{ sku.template.get_color_display }}){% else %}V7 Preset{% endif %}
                                 </div>
                                 <div class="card-body p-2 text-center">
                                     {% if sku.mockup_image %}
@@ -63,8 +63,8 @@
             <div class="card-body">
                 <h6>产品信息</h6>
                 <p class="small mb-1">国家: <strong>{{ product.country.name }}</strong></p>
-                <p class="small mb-1">分类: <strong>{{ product.category.name }}</strong></p>
-                <p class="small mb-1">模板: <strong>{{ product.template.name }}</strong></p>
+                <p class="small mb-1">分类: <strong>{% if product.prompt_preset %}{{ product.prompt_preset.name }}{% elif product.category %}{{ product.category.name }}{% else %}-{% endif %}</strong></p>
+                <p class="small mb-1">模板: <strong>{% if product.template %}{{ product.template.name }}{% else %}-{% endif %}</strong></p>
                 <p class="small mb-1">Seed: <code>{{ product.seed }}</code></p>
                 <p class="small mb-1">背景: {{ product.background }}</p>
                 <p class="small mb-1">SKU数: <strong>{{ product.skus.count }}</strong></p>

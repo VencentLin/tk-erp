@@ -23,6 +23,18 @@ urlpatterns = [
     path('categories/task/<int:task_id>/', views.category_task_status, name='category_task_status'),
     path('categories/<int:cid>/edit/', views.category_edit, name='category_edit'),
     path('categories/<int:cid>/delete/', views.category_delete, name='category_delete'),
+    path('categories/batch-delete/', views.category_batch_delete, name='category_batch_delete'),
+    path('categories/batch-hard-delete/', views.category_batch_hard_delete, name='category_batch_hard_delete'),
+    path('categories/batch-regenerate/', views.category_batch_regenerate, name='category_batch_regenerate'),
+    path('categories/<int:cid>/hard-delete/', views.category_hard_delete, name='category_hard_delete'),
+
+    # Prompt Presets (直接 .md 提示词)
+    path('presets/', views.preset_list, name='preset_list'),
+    path('presets/upload/', views.preset_upload, name='preset_upload'),
+    path('presets/<int:pid>/edit/', views.preset_edit, name='preset_edit'),
+    path('presets/<int:pid>/delete/', views.preset_delete, name='preset_delete'),
+    path('presets/batch-delete/', views.preset_batch_delete, name='preset_batch_delete'),
+    path('presets/classify/', views.preset_classify, name='preset_classify'),
 
     # Templates
     path('templates/', views.template_list, name='template_list'),
@@ -36,6 +48,7 @@ urlpatterns = [
     path('products/export/', views.product_export, name='product_export'),
     path('products/generate-all/', views.product_generate_all, name='product_generate_all'),
     path('products/batch-delete/', views.product_batch_delete, name='product_batch_delete'),
+    path('products/batch-regenerate/', views.product_batch_regenerate, name='product_batch_regenerate'),
     path('products/<int:pid>/edit/', views.product_edit, name='product_edit'),
     path('products/<int:pid>/delete/', views.product_delete, name='product_delete'),
     path('products/<int:pid>/regenerate/', views.product_regenerate, name='product_regenerate'),

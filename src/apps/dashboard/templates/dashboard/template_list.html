@@ -17,7 +17,7 @@
             <img src="{{ t.image.url }}" style="height:220px; object-fit:cover;">
             {% endif %}
             <div class="card-body">
-                <h6 class="card-title">{{ t.name }} <span class="badge bg-light text-dark">{{ t.get_color_display }}</span></h6>
+                <h6 class="card-title">{{ t.name }} <span class="badge bg-light text-dark">{{ t.get_color_display }}</span>{% if t.is_pod_template %} <span class="badge bg-success">POD</span>{% endif %}{% if t.is_pod_template and not t.print_area_width %} <span class="badge bg-warning text-dark">未框选</span>{% endif %}</h6>
                 {% if t.fabric %}<p class="small text-muted mb-1"><i class="bi bi-puzzle"></i> {{ t.fabric|truncatechars:40 }}</p>{% endif %}
                 {% if t.prompt_body %}<p class="small text-muted mb-1"><i class="bi bi-cpu"></i> {{ t.prompt_body|truncatechars:80 }}</p>{% endif %}
                 <small class="text-muted d-block">{{ t.sizes }} | {{ t.created_at|date:"Y-m-d" }}</small>

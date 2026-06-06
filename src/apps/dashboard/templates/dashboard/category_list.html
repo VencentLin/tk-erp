@@ -4,22 +4,39 @@
 <div class="topbar"><h5>📂 印花分类管理</h5>
     <div>
         <a href="{% url 'category_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-upload"></i> 上传图集分析</a>
+        <button class="btn btn-warning rounded-pill" onclick="regenerateSelected()"><i class="bi bi-arrow-repeat"></i> 重新生成选中</button>
+        <button class="btn btn-outline-danger rounded-pill" onclick="softDeleteSelected()"><i class="bi bi-x-circle"></i> 批量停用</button>
+        <button class="btn btn-danger rounded-pill" onclick="hardDeleteSelected()"><i class="bi bi-trash"></i> 彻底删除</button>
     </div>
 </div>
+
+<div class="mb-3">
+    <span class="text-muted small">共 {{ categories|length }} 个分类</span>
+    <label class="ms-3 small"><input type="checkbox" id="selectAll" onchange="document.querySelectorAll('.category-check').forEach(cb=>cb.checked=this.checked)"> 全选</label>
+</div>
+
 <div class="row g-3">
     {% for c in categories %}
     <div class="col-xl-3 col-lg-4 col-md-6">
-        <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+        <div class="card border-0 shadow-sm h-100" style="border-radius:12px;{% if not c.is_active %}opacity:0.6;{% endif %}">
             <div class="card-body">
-                <h6>{{ c.name }}{% if not c.is_active %} <span class="badge bg-secondary">已停用</span>{% endif %}</h6>
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0">{{ c.name }}{% if not c.is_active %} <span class="badge bg-secondary">已停用</span>{% endif %}</h6>
+                    <input type="checkbox" class="category-check" value="{{ c.id }}">
+                </div>
                 <p class="small text-muted mb-1">{{ c.print_prompt|truncatechars:80 }}</p>
                 <div class="mb-2">
                     {% for kw in c.keywords|slice:":5" %}<span class="badge bg-light text-dark me-1">{{ kw }}</span>{% endfor %}
                 </div>
             </div>
-            <div class="card-footer bg-transparent border-0">
+            <div class="card-footer bg-transparent border-0 d-flex gap-1">
                 <a href="{% url 'category_edit' c.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
-                <a href="{% url 'category_delete' c.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定停用？')"><i class="bi bi-x-circle"></i></a>
+                {% if c.is_active %}
+                <a href="{% url 'category_delete' c.id %}" class="btn btn-sm btn-outline-secondary" onclick="return confirm('确定停用「{{ c.name }}」？')"><i class="bi bi-x-circle"></i> 停用</a>
+                {% else %}
+                <a href="{% url 'category_edit' c.id %}" class="btn btn-sm btn-outline-success"><i class="bi bi-check-circle"></i> 启用</a>
+                {% endif %}
+                <a href="{% url 'category_hard_delete' c.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('⚠️ 彻底删除「{{ c.name }}」？\n\n此操作不可撤销！如果有关联产品将无法删除。')"><i class="bi bi-trash"></i></a>
             </div>
         </div>
     </div>
@@ -31,4 +48,27 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function softDeleteSelected() {
+    const ids = Array.from(document.querySelectorAll('.category-check:checked')).map(cb => cb.value);
+    if (ids.length === 0) { alert('请先选择分类'); return; }
+    if (!confirm('确定停用 ' + ids.length + ' 个分类？')) return;
+    window.location = '{% url "category_batch_delete" %}?ids=' + ids.join('&ids=');
+}
+function hardDeleteSelected() {
+    const ids = Array.from(document.querySelectorAll('.category-check:checked')).map(cb => cb.value);
+    if (ids.length === 0) { alert('请先选择分类'); return; }
+    if (!confirm('⚠️ 彻底删除 ' + ids.length + ' 个分类？此操作不可撤销！\n\n有关联产品的分类将被跳过。')) return;
+    window.location = '{% url "category_batch_hard_delete" %}?ids=' + ids.join('&ids=');
+}
+function regenerateSelected() {
+    const ids = Array.from(document.querySelectorAll('.category-check:checked')).map(cb => cb.value);
+    if (ids.length === 0) { alert('请先选择分类'); return; }
+    if (!confirm('确定重新生成 ' + ids.length + ' 个分类的 Prompt 文件？')) return;
+    window.location = '{% url "category_batch_regenerate" %}?ids=' + ids.join('&ids=');
+}
+</script>
 {% endblock %}

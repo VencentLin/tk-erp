@@ -28,7 +28,7 @@ if not settings.configured:
             'storages',
             'apps.accounts',
             'apps.core',
-            'apps.patterns',
+            'apps.categories',
             'apps.templates_app',
             'apps.products',
             'apps.generation',

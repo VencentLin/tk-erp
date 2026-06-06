@@ -5,7 +5,7 @@
 <div class="topbar"><h5>📦 产品库</h5>
     <div>
         <a href="{% url 'product_create' %}" class="btn btn-primary rounded-pill"><i class="bi bi-plus-lg"></i> 创建产品</a>
-        <a href="{% url 'product_generate_all' %}" class="btn btn-warning rounded-pill"><i class="bi bi-lightning"></i> 生成待处理</a>
+        <button class="btn btn-warning rounded-pill" onclick="regenerateSelected()"><i class="bi bi-arrow-repeat"></i> 重新生成选中</button>
         <button class="btn btn-success rounded-pill" onclick="exportSelected()"><i class="bi bi-download"></i> 导出选中</button>
         <button class="btn btn-danger rounded-pill" onclick="deleteSelected()"><i class="bi bi-trash"></i> 批量删除</button>
     </div>
@@ -42,10 +42,16 @@
                     {% endif %}
                 </td>
                 <td><strong>{{ p.title|default:'待生成'|truncatechars:40 }}</strong></td>
-                <td><span class="badge bg-light text-dark">{{ p.category.name }}</span></td>
+                <td>
+                    {% if p.prompt_preset %}<span class="badge bg-primary text-white">{{ p.prompt_preset.name }}</span>
+                    {% elif p.category %}<span class="badge bg-light text-dark">{{ p.category.name }}</span>
+                    {% else %}<span class="badge bg-light text-dark">-</span>{% endif %}
+                </td>
                 <td>
                     {% for sku in p.skus.all %}
-                    <span class="badge bg-light text-dark me-1">{{ sku.template.get_color_display }}</span>
+                    <span class="badge bg-light text-dark me-1">{% if sku.template %}{{ sku.template.get_color_display }}{% else %}SKU#{{ sku.id }}{% endif %}</span>
+                    {% empty %}
+                    <span class="badge bg-light text-dark">-</span>
                     {% endfor %}
                 </td>
                 <td><span class="badge bg-light text-dark">{{ p.country.name }}</span></td>
@@ -77,6 +83,12 @@ function exportSelected() {
     const ids = Array.from(document.querySelectorAll('.product-check:checked')).map(cb => cb.value);
     if (ids.length === 0) { alert('请先选择产品'); return; }
     window.location = '{% url "product_export" %}?ids=' + ids.join('&ids=');
+}
+function regenerateSelected() {
+    const ids = Array.from(document.querySelectorAll('.product-check:checked')).map(cb => cb.value);
+    if (ids.length === 0) { alert('请先选择产品'); return; }
+    if (!confirm('确定重新生成 ' + ids.length + ' 个产品？')) return;
+    window.location = '{% url "product_batch_regenerate" %}?ids=' + ids.join('&ids=');
 }
 function deleteSelected() {
     const ids = Array.from(document.querySelectorAll('.product-check:checked')).map(cb => cb.value);

@@ -25,9 +25,93 @@
                 <div class="mb-3"><label class="form-label">面料描述</label><input name="fabric" value="{{ template.fabric }}" class="form-control" placeholder="如 premium cotton, 230gsm"></div>
                 <div class="mb-3"><label class="form-label">可选尺码</label><input name="sizes" value="{{ template.sizes }}" class="form-control"></div>
                 <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_active" {% if template.is_active %}checked{% endif %}><label class="form-check-label">启用</label></div>
+
+                <hr class="my-3">
+                <h6 class="mb-3">🖨️ POD 贴图设置</h6>
+                <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" name="is_pod_template" id="isPOD" {% if template.is_pod_template %}checked{% endif %} onchange="togglePOD()"><label class="form-check-label" for="isPOD">可用于 POD 贴图模式</label></div>
+
+                <div id="podArea" style="{% if not template.is_pod_template %}display:none;{% endif %}">
+                    <label class="form-label small">🎯 印花区域（在模板图上拖拽框选胸口印花区域）</label>
+                    <div style="position:relative;display:inline-block;cursor:crosshair;border:1px solid #ddd;border-radius:8px;overflow:hidden;" id="canvasContainer">
+                        {% if template.image %}
+                        <img id="templateImg" src="{{ template.image.url }}" style="max-width:100%;max-height:400px;display:block;" onload="initCanvas()">
+                        <canvas id="printAreaCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+                        {% else %}
+                        <p class="text-muted p-3">请先上传模板图片</p>
+                        {% endif %}
+                    </div>
+                    <div class="row g-2 mt-2">
+                        <div class="col-3"><label class="form-label small">X</label><input type="number" name="print_area_x" id="pax" value="{{ template.print_area_x|default:'' }}" class="form-control form-control-sm" readonly></div>
+                        <div class="col-3"><label class="form-label small">Y</label><input type="number" name="print_area_y" id="pay" value="{{ template.print_area_y|default:'' }}" class="form-control form-control-sm" readonly></div>
+                        <div class="col-3"><label class="form-label small">W</label><input type="number" name="print_area_width" id="paw" value="{{ template.print_area_width|default:'' }}" class="form-control form-control-sm" readonly></div>
+                        <div class="col-3"><label class="form-label small">H</label><input type="number" name="print_area_height" id="pah" value="{{ template.print_area_height|default:'' }}" class="form-control form-control-sm" readonly></div>
+                    </div>
+                    <small class="text-muted">在模板图上按住鼠标拖拽矩形框选胸口印花区域，坐标会自动换算为原图像素值</small>
+                </div>
             </div>
             <div class="card-footer bg-transparent text-end"><button type="submit" class="btn btn-primary rounded-pill">保存修改</button></div>
         </div>
     </form>
 </div></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePOD() {
+    document.getElementById('podArea').style.display = document.getElementById('isPOD').checked ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var canvas = document.getElementById('printAreaCanvas');
+    if (!canvas) return;
+
+    var startX = 0, startY = 0;
+
+    canvas.addEventListener('mousedown', function(e) {
+        var img = document.getElementById('templateImg');
+        if (!img) return;
+        var displayW = img.clientWidth;
+        var naturalW = img.naturalWidth;
+        var scaleX = naturalW / displayW;
+        var rect = canvas.getBoundingClientRect();
+        startX = (e.clientX - rect.left) * scaleX;
+        startY = (e.clientY - rect.top) * (img.naturalHeight / img.clientHeight);
+    });
+
+    canvas.addEventListener('mouseup', function(e) {
+        var img = document.getElementById('templateImg');
+        if (!img) return;
+        var displayW = img.clientWidth;
+        var displayH = img.clientHeight;
+        var naturalW = img.naturalWidth;
+        var naturalH = img.naturalHeight;
+        var scaleX = naturalW / displayW;
+        var scaleY = naturalH / displayH;
+
+        var rect = canvas.getBoundingClientRect();
+        var endX = (e.clientX - rect.left) * scaleX;
+        var endY = (e.clientY - rect.top) * scaleY;
+
+        var x = Math.round(Math.min(startX, endX));
+        var y = Math.round(Math.min(startY, endY));
+        var w = Math.round(Math.abs(endX - startX));
+        var h = Math.round(Math.abs(endY - startY));
+
+        if (w < 10 || h < 10) return;
+
+        document.getElementById('pax').value = x;
+        document.getElementById('pay').value = y;
+        document.getElementById('paw').value = w;
+        document.getElementById('pah').value = h;
+
+        var canvasEl = document.getElementById('printAreaCanvas');
+        var ctx = canvasEl.getContext('2d');
+        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(x / scaleX, y / scaleY, w / scaleX, h / scaleY);
+    });
+});
+</script>
 {% endblock %}
