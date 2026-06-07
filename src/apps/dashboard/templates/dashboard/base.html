@@ -84,17 +84,14 @@
         <a href="{% url 'country_list' %}" class="nav-link {% if 'country' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-building"></i> <span>店铺管理</span>
         </a>
-        <a href="{% url 'user_list' %}" class="nav-link {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="bi bi-people"></i> <span>用户管理</span>
+        <a href="{% url 'template_list' %}" class="nav-link {% if 'template' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-grid"></i> <span>T恤模板</span>
         </a>
         <a href="{% url 'preset_list' %}" class="nav-link {% if 'preset' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-file-text"></i> <span>提示词预设</span>
         </a>
-        <a href="{% url 'category_list' %}" class="nav-link {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="bi bi-folder"></i> <span>分类管理</span>
-        </a>
-        <a href="{% url 'template_list' %}" class="nav-link {% if 'template' in request.resolver_match.url_name %}active{% endif %}">
-            <i class="bi bi-grid"></i> <span>T恤模板</span>
+        <a href="{% url 'image_asset_list' %}" class="nav-link {% if 'image_asset' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-images"></i> <span>图片素材库</span>
         </a>
         <a href="{% url 'product_create' %}" class="nav-link {% if request.resolver_match.url_name == 'product_create' %}active{% endif %}">
             <i class="bi bi-stars"></i> <span>创建产品</span>
@@ -103,6 +100,9 @@
             <i class="bi bi-box-seam"></i> <span>产品库</span>
         </a>
         <div class="nav-section">系统</div>
+        <a href="{% url 'user_list' %}" class="nav-link {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-people"></i> <span>用户管理</span>
+        </a>
         <a href="{% url 'settings_page' %}" class="nav-link {% if 'settings' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-gear"></i> <span>系统设置</span>
         </a>

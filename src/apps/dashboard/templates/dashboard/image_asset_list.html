@@ -1,0 +1,97 @@
+{% extends "dashboard/base.html" %}
+{% block title %}图片素材库 - TK-ERP{% endblock %}
+{% block content %}
+<div class="topbar"><h5>🖼️ 图片素材库</h5>
+    <div>
+        <a href="{% url 'image_asset_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-upload"></i> 上传图片</a>
+        <span class="me-2">
+            <select id="assetCountry" class="form-select form-select-sm d-inline-block" style="width:auto;">
+                <option value="">选择国家</option>
+                {% for c in countries %}
+                <option value="{{ c.code }}">{{ c.name }} ({{ c.code }})</option>
+                {% endfor %}
+            </select>
+        </span>
+        <button class="btn btn-success rounded-pill" onclick="createProducts()"><i class="bi bi-stars"></i> 生成产品</button>
+        <button class="btn btn-danger rounded-pill" onclick="deleteSelected()"><i class="bi bi-trash"></i> 批量停用</button>
+    </div>
+</div>
+
+{# Hidden form for POST submission #}
+<form method="post" action="{% url 'image_asset_create_products' %}" id="createProductsForm" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="country" id="formCountry">
+</form>
+
+<div class="mb-3">
+    <div class="btn-group btn-group-sm" role="group">
+        <a href="?color=" class="btn btn-{% if not selected_color %}dark{% else %}outline-secondary{% endif %}">全部</a>
+        <a href="?color=black" class="btn btn-{% if selected_color == 'black' %}dark{% else %}outline-secondary{% endif %}">⬛ 黑色</a>
+        <a href="?color=white" class="btn btn-{% if selected_color == 'white' %}dark{% else %}outline-secondary{% endif %}">⬜ 白色</a>
+    </div>
+    <span class="text-muted small ms-2">共 {{ assets|length }} 个素材</span>
+    <label class="ms-2 small"><input type="checkbox" id="selectAll" onchange="document.querySelectorAll('.asset-check').forEach(cb=>cb.checked=this.checked)"> 全选</label>
+</div>
+
+<div class="row g-3">
+    {% for a in assets %}
+    <div class="col-xl-3 col-lg-4 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="border-radius:12px;">
+            <div style="height:200px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f5f5f5;">
+                <img src="{{ a.image.url }}" style="max-width:100%;max-height:200px;object-fit:contain;">
+            </div>
+            <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <h6 class="mb-0 small" style="font-size:12px;">{% if a.original_filename %}{{ a.original_filename|truncatechars:30 }}{% else %}#{{ a.id }}{% endif %}</h6>
+                    <input type="checkbox" class="asset-check" value="{{ a.id }}">
+                </div>
+                <div>
+                    <span class="badge {% if a.color == 'black' %}bg-dark{% else %}bg-light text-dark{% endif %}">{{ a.color|title }}</span>
+                    {% if a.created_product %}<span class="badge bg-success">已生成</span>{% endif %}
+                    {% if a.source_folder %}<br><small class="text-muted">{{ a.source_folder|truncatechars:25 }}</small>{% endif %}
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 pt-0">
+                <a href="{% url 'image_asset_delete' a.id %}" class="btn btn-sm btn-outline-danger w-100" onclick="return confirm('确定停用？')"><i class="bi bi-trash"></i> 停用</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <i class="bi bi-images" style="font-size:64px;color:#ccc;"></i>
+        <p class="text-muted mt-3">还没有图片素材</p>
+        <a href="{% url 'image_asset_upload' %}" class="btn btn-primary rounded-pill">上传图片素材</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function createProducts() {
+    const ids = Array.from(document.querySelectorAll('.asset-check:checked')).map(cb => cb.value);
+    if (ids.length === 0) { alert('请先选择素材'); return; }
+    const country = document.getElementById('assetCountry').value;
+    if (!country) { alert('请先选择国家'); return; }
+
+    const form = document.getElementById('createProductsForm');
+    document.getElementById('formCountry').value = country;
+    // Remove old ids
+    form.querySelectorAll('input[name="ids"]').forEach(el => el.remove());
+    // Add selected ids
+    ids.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = 'ids'; input.value = id;
+        form.appendChild(input);
+    });
+    form.submit();
+}
+
+function deleteSelected() {
+    const ids = Array.from(document.querySelectorAll('.asset-check:checked')).map(cb => cb.value);
+    if (ids.length === 0) { alert('请先选择素材'); return; }
+    if (!confirm('确定停用 ' + ids.length + ' 个素材？')) return;
+    window.location = '{% url "image_asset_batch_delete" %}?ids=' + ids.join('&ids=');
+}
+</script>
+{% endblock %}

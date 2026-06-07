@@ -1,5 +1,6 @@
 """运营面板视图 — V2 分类驱动生成"""
-import json, io, threading, sys, os, random, time
+import json, io, threading, sys, os, random, time, re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 os.environ.setdefault('ORT_PROVIDERS', 'CPUExecutionProvider')
 
 from pathlib import Path
@@ -14,7 +15,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 
 from apps.templates_app.models import TShirtTemplate
-from apps.products.models import Product, ProductSKU
+from apps.products.models import Product, ProductSKU, ImageAsset
 from apps.core.models import Country, Store
 from apps.categories.models import PrintCategory, PromptPreset, PrintDesignPreset, PrintDesign
 
@@ -188,11 +189,19 @@ def template_upload(request):
         image = request.FILES.get('image')
         fabric = request.POST.get('fabric', '')
         sizes = request.POST.get('sizes', 'XS,S,M,L,XL,XXL,3XL,4XL')
+        is_pod = request.POST.get('is_pod_template') == 'on'
         if image and name:
-            prompt_body = _analyze_template(image.read())
-            TShirtTemplate.objects.create(name=name, color=color, image=image,
-                                          prompt_body=prompt_body, fabric=fabric, sizes=sizes)
-            messages.success(request, '模板上传成功，已自动分析版型')
+            tpl = TShirtTemplate.objects.create(
+                name=name, color=color, image=image,
+                fabric=fabric, sizes=sizes,
+                prompt_body=request.POST.get('prompt_body', ''),
+                is_pod_template=is_pod,
+                template_view='front',
+            )
+            if tpl.is_pod_template:
+                messages.success(request, 'POD 模板上传成功，请框选胸口印花区域')
+                return redirect('template_edit', tid=tpl.id)
+            messages.success(request, '模板上传成功')
             return redirect('template_list')
     return render(request, 'dashboard/template_upload.html')
 
@@ -213,10 +222,15 @@ def template_edit(request, tid):
             t.print_area_height = request.POST.get('print_area_height') or None
         if request.FILES.get('image'):
             t.image = request.FILES['image']
-            t.prompt_body = _analyze_template(request.FILES['image'].read())
+            # 替换图片后清空 print_area，需重新框选
+            t.print_area_x = None
+            t.print_area_y = None
+            t.print_area_width = None
+            t.print_area_height = None
+            if t.is_pod_template:
+                messages.warning(request, '图片已更换，请重新框选胸口印花区域')
         t.is_active = request.POST.get('is_active') == 'on'
         t.save()
-        messages.success(request, '已更新')
         return redirect('template_list')
     return render(request, 'dashboard/template_edit.html', {'template': t})
 
@@ -797,16 +811,57 @@ def _normalize_risky_keywords(text: str) -> tuple:
 @staff_required
 def preset_list(request):
     color = request.GET.get('color', '')
+    ptype = request.GET.get('type', 'product')  # product / print / all
+    sync_requested = request.GET.get('sync') == '1'
+
     # V7: 首次加载或手动触发时从磁盘同步
-    if request.GET.get('sync') == '1' or not PromptPreset.objects.exists():
-        from apps.categories.prompt_sync import sync_prompt_presets_from_disk
-        sync_prompt_presets_from_disk()
-    presets = PromptPreset.objects.all().order_by('-created_at')
-    if color in ('white', 'black', 'other'):
-        presets = presets.filter(shirt_color=color)
+    from apps.categories.prompt_sync import sync_prompt_presets_from_disk, sync_print_presets_from_disk
+
+    should_sync_product = sync_requested or not PromptPreset.objects.exists()
+    should_sync_print = sync_requested or not PrintDesignPreset.objects.exists()
+
+    if should_sync_product and ptype in ('product', 'all'):
+        r = sync_prompt_presets_from_disk()
+        if sync_requested:
+            messages.success(request,
+                f'已同步产品图提示词：新增 {r["created"]} / 更新 {r["updated"]} / 清理 {r["deactivated"]}')
+    if should_sync_print and ptype in ('print', 'all'):
+        r = sync_print_presets_from_disk()
+        if sync_requested:
+            messages.success(request,
+                f'已同步印花提示词：新增 {r["created"]} / 更新 {r["updated"]} / 清理 {r["deactivated"]}')
+
+    # Build unified preset list
+    items = []
+    if ptype in ('product', 'all'):
+        product_presets = PromptPreset.objects.all()
+        if color in ('white', 'black', 'other'):
+            product_presets = product_presets.filter(shirt_color=color)
+        for p in product_presets.order_by('-created_at'):
+            items.append({
+                'id': p.id, 'name': p.name, 'slug': p.slug,
+                'content': p.content, 'shirt_color': p.shirt_color,
+                'is_active': p.is_active, 'created_at': p.created_at,
+                'preset_type': 'product',
+                'negative_prompt': p.negative_prompt,
+            })
+
+    if ptype in ('print', 'all'):
+        print_presets = PrintDesignPreset.objects.all()
+        if color in ('white', 'black', 'other'):
+            print_presets = print_presets.filter(shirt_color=color)
+        for p in print_presets.order_by('-created_at'):
+            items.append({
+                'id': p.id, 'name': p.name, 'slug': p.slug,
+                'content': p.content, 'shirt_color': p.shirt_color,
+                'is_active': p.is_active, 'created_at': p.created_at,
+                'preset_type': 'print',
+                'negative_prompt': p.negative_prompt,
+            })
+
+    items.sort(key=lambda x: x['created_at'], reverse=True)
     return render(request, 'dashboard/preset_list.html', {
-        'presets': presets,
-        'selected_color': color,
+        'presets': items, 'selected_color': color, 'selected_type': ptype,
     })
 
 
@@ -814,6 +869,7 @@ def preset_list(request):
 def preset_upload(request):
     if request.method == 'POST':
         md_files = request.FILES.getlist('md_files')
+        preset_type = request.POST.get('preset_type', 'product')
         if not md_files:
             messages.error(request, '请选择 .md 文件')
             return redirect('preset_upload')
@@ -824,15 +880,24 @@ def preset_upload(request):
                 continue
             content = f.read().decode('utf-8', errors='replace')
             positive, negative = _parse_md_prompt(content)
-            positive = _normalize_preset_prompt(positive)  # V7: 替换遗留占位符
-            positive, _warnings = _normalize_risky_keywords(positive)  # V7.1: 标准化高风险词
+            if preset_type == 'product':
+                positive = _normalize_preset_prompt(positive)  # V7: 替换遗留占位符
+                positive, _warnings = _normalize_risky_keywords(positive)  # V7.1: 标准化高风险词
 
             name = f.name.replace('.md', '').replace('-', ' ').replace('_', ' ').strip()
             slug = name.lower().replace(' ', '-').replace('/', '-')
-            # 确保 slug 唯一
             base_slug = slug
             counter = 1
-            while PromptPreset.objects.filter(slug=slug).exists():
+            shirt_color = _detect_shirt_color(f.name)
+
+            if preset_type == 'print':
+                model_class = PrintDesignPreset
+                slug_check = lambda s: PrintDesignPreset.objects.filter(slug=s).exists()
+            else:
+                model_class = PromptPreset
+                slug_check = lambda s: PromptPreset.objects.filter(slug=s).exists()
+
+            while slug_check(slug):
                 slug = f'{base_slug}-{counter}'
                 counter += 1
 
@@ -840,8 +905,7 @@ def preset_upload(request):
             filepath = _PROMPT_MD_DIR / f'{slug}.md'
             filepath.write_text(content, encoding='utf-8')
 
-            shirt_color = _detect_shirt_color(f.name)
-            PromptPreset.objects.create(
+            model_class.objects.create(
                 name=name, slug=slug,
                 content=positive, negative_prompt=negative,
                 md_file=str(filepath.relative_to(PROJECT_ROOT)),
@@ -849,20 +913,34 @@ def preset_upload(request):
             )
             created += 1
 
-        messages.success(request, f'已导入 {created} 个提示词预设')
-        return redirect('preset_list')
+        type_label = '印花' if preset_type == 'print' else '产品图'
+        messages.success(request, f'已导入 {created} 个{type_label}提示词预设')
+        return redirect(f'/presets/?type={preset_type}')
 
     return render(request, 'dashboard/preset_upload.html', {})
 
 
+def _resolve_preset_type(pid, ptype=None):
+    """Try to find a preset in both models, return (instance, 'product'|'print') or 404"""
+    if ptype == 'print':
+        return get_object_or_404(PrintDesignPreset, id=pid), 'print'
+    if ptype == 'product':
+        return get_object_or_404(PromptPreset, id=pid), 'product'
+    # Auto-detect
+    try:
+        return PromptPreset.objects.get(id=pid), 'product'
+    except PromptPreset.DoesNotExist:
+        return get_object_or_404(PrintDesignPreset, id=pid), 'print'
+
+
 @staff_required
 def preset_delete(request, pid):
-    preset = get_object_or_404(PromptPreset, id=pid)
-    product_count = preset.products.count()
-    if product_count > 0:
-        messages.error(request, f'「{preset.name}」下有 {product_count} 个产品，请先删除产品再删除预设')
+    ptype = request.GET.get('type', '')
+    preset, ptype = _resolve_preset_type(pid, ptype)
+    related_count = preset.products.count() if hasattr(preset, 'products') else preset.designs.count()
+    if related_count > 0:
+        messages.error(request, f'「{preset.name}」下有 {related_count} 个关联记录，请先删除产品再删除预设')
         return redirect('preset_list')
-    # 删除关联的 .md 文件
     if preset.md_file:
         try:
             fp = Path(str(preset.md_file.path))
@@ -872,31 +950,33 @@ def preset_delete(request, pid):
             pass
     preset.delete()
     messages.success(request, f'已删除「{preset.name}」')
-    return redirect('preset_list')
+    return redirect(f'/presets/?type={ptype}')
 
 
 @staff_required
 def preset_batch_delete(request):
     ids = request.GET.getlist('ids')
     ids = [int(i) for i in ids if i.isdigit()]
+    ptype = request.GET.get('type', '')
     deleted, blocked = [], []
     for pid in ids:
         try:
-            preset = PromptPreset.objects.get(id=pid)
-            if preset.products.count() > 0:
-                blocked.append(preset.name)
-            else:
-                if preset.md_file:
-                    try:
-                        fp = Path(str(preset.md_file.path))
-                        if fp.exists():
-                            fp.unlink()
-                    except Exception:
-                        pass  # 文件不存在或路径无效
-                preset.delete()
-                deleted.append(preset.name)
-        except PromptPreset.DoesNotExist:
-            pass
+            preset = _resolve_preset_type(pid, ptype)[0]
+        except Exception:
+            continue
+        related_count = preset.products.count() if hasattr(preset, 'products') else preset.designs.count()
+        if related_count > 0:
+            blocked.append(preset.name)
+        else:
+            if preset.md_file:
+                try:
+                    fp = Path(str(preset.md_file.path))
+                    if fp.exists():
+                        fp.unlink()
+                except Exception:
+                    pass
+            preset.delete()
+            deleted.append(preset.name)
     if deleted:
         messages.success(request, f'已删除 {len(deleted)} 个预设')
     if blocked:
@@ -906,18 +986,21 @@ def preset_batch_delete(request):
 
 @staff_required
 def preset_edit(request, pid):
-    preset = get_object_or_404(PromptPreset, id=pid)
+    ptype = request.GET.get('type', '')
+    preset, ptype = _resolve_preset_type(pid, ptype)
     if request.method == 'POST':
         preset.name = request.POST.get('name', preset.name)
-        content = _normalize_preset_prompt(request.POST.get('content', preset.content))  # V7: 替换遗留占位符
-        content, _warnings = _normalize_risky_keywords(content)  # V7.1: 标准化高风险词
+        content = request.POST.get('content', preset.content)
+        if ptype == 'product':
+            content = _normalize_preset_prompt(content)
+            content, _warnings = _normalize_risky_keywords(content)
         preset.content = content
         preset.negative_prompt = request.POST.get('negative_prompt', preset.negative_prompt)
         preset.is_active = request.POST.get('is_active') == 'on'
         preset.save()
         messages.success(request, '已更新')
-        return redirect('preset_list')
-    return render(request, 'dashboard/preset_edit.html', {'preset': preset})
+        return redirect(f'/presets/?type={ptype}')
+    return render(request, 'dashboard/preset_edit.html', {'preset': preset, 'preset_type': ptype})
 
 
 def _analyze_image_collection(files) -> list:
@@ -1063,10 +1146,13 @@ def product_list(request):
     products = Product.objects.prefetch_related('skus__template').select_related('country', 'category', 'prompt_preset').order_by('-created_at')
     if country_code: products = products.filter(country__code=country_code)
     if status: products = products.filter(status=status)
+    # Auto-refresh when there are active products
+    has_active = products.filter(status__in=['pending', 'processing', 'text_pending']).exists()
     return render(request, 'dashboard/product_list.html', {
         'products': products, 'countries': Country.objects.all(),
         'statuses': Product.STATUS_CHOICES,
         'selected_country': country_code, 'selected_status': status,
+        'has_active_products': has_active,
     })
 
 @staff_required
@@ -1074,7 +1160,11 @@ def product_create(request):
     categories = PrintCategory.objects.filter(is_active=True)
     presets = PromptPreset.objects.filter(is_active=True)
     print_presets = PrintDesignPreset.objects.filter(is_active=True)
-    pod_templates = TShirtTemplate.objects.filter(is_active=True, is_pod_template=True)
+    pod_templates = TShirtTemplate.objects.filter(
+        is_active=True, is_pod_template=True, template_view='front',
+        print_area_x__isnull=False, print_area_y__isnull=False,
+        print_area_width__isnull=False, print_area_height__isnull=False,
+    )
     countries = Country.objects.all()
     mode = request.GET.get('mode', 'direct')
 
@@ -1090,12 +1180,13 @@ def product_create(request):
         country = get_object_or_404(Country, code=country_code)
 
         if mode == 'pod':
-            # POD 模式
-            print_preset_ids = request.POST.getlist('print_preset')
+            # POD 模式 — 支持大批量（max 1000），分批执行
             template_id = request.POST.get('template')
-            if not print_preset_ids:
-                messages.error(request, '请选择至少一个印花分类')
-                return redirect(f'{request.path}?mode=pod')
+            preset_mode = request.POST.get('print_preset_mode', 'manual')
+            active_print_presets = list(PrintDesignPreset.objects.filter(is_active=True))
+            if count > 1000:
+                count = 1000
+
             if not template_id:
                 messages.error(request, '请选择 POD 模板')
                 return redirect(f'{request.path}?mode=pod')
@@ -1106,21 +1197,43 @@ def product_create(request):
                 messages.error(request, '无效的 POD 模板')
                 return redirect(f'{request.path}?mode=pod')
 
-            total = 0
-            for ppid in print_preset_ids:
-                try:
-                    pp = PrintDesignPreset.objects.get(id=int(ppid), is_active=True)
-                except (ValueError, PrintDesignPreset.DoesNotExist):
-                    continue
+            # Step 1: 创建所有产品（pending），收集任务列表
+            jobs = []
+            if preset_mode == 'random':
+                if not active_print_presets:
+                    messages.error(request, '没有可用印花提示词，请先同步或上传')
+                    return redirect(f'{request.path}?mode=pod')
+                rng = random.Random()
                 for i in range(count):
+                    pp = rng.choice(active_print_presets)
                     product = Product.objects.create(
                         country=country, generation_mode='pod',
                         template=pod_template,
-                        size_info='XS,S,M,L,XL,XXL,3XL,4XL', status='processing'
+                        size_info='XS,S,M,L,XL,XXL,3XL,4XL', status='pending'
                     )
-                    threading.Thread(target=_run_pod_generation, args=(product.id, pp.id), daemon=True).start()
-                    total += 1
-            messages.success(request, f'创建 {total} 个 POD 产品，正在生成...')
+                    jobs.append((product.id, pp.id))
+            else:
+                print_preset_ids = request.POST.getlist('print_preset')
+                if not print_preset_ids:
+                    messages.error(request, '请选择至少一个印花分类')
+                    return redirect(f'{request.path}?mode=pod')
+                for ppid in print_preset_ids:
+                    try:
+                        pp = PrintDesignPreset.objects.get(id=int(ppid), is_active=True)
+                    except (ValueError, PrintDesignPreset.DoesNotExist):
+                        continue
+                    for i in range(count):
+                        product = Product.objects.create(
+                            country=country, generation_mode='pod',
+                            template=pod_template,
+                            size_info='XS,S,M,L,XL,XXL,3XL,4XL', status='pending'
+                        )
+                        jobs.append((product.id, pp.id))
+
+            total = len(jobs)
+            # Step 2: 启动单个批量 worker 线程
+            threading.Thread(target=_run_pod_generation_batch, args=(jobs,), daemon=True).start()
+            messages.success(request, f'已创建 {total} 个 POD 产品，将分批生成，请到产品库查看进度。')
             return redirect('product_list')
         else:
             # Direct 模式（原 V7 逻辑）
@@ -1149,15 +1262,10 @@ def product_create(request):
     white_presets = [p for p in presets if p.shirt_color == 'white']
     black_presets = [p for p in presets if p.shirt_color == 'black']
     other_presets = [p for p in presets if p.shirt_color not in ('white', 'black')]
-    # POD 分组
-    white_print = [p for p in print_presets if p.shirt_color == 'white']
-    black_print = [p for p in print_presets if p.shirt_color == 'black']
-    other_print = [p for p in print_presets if p.shirt_color not in ('white', 'black')]
     return render(request, 'dashboard/product_create.html', {
         'presets': presets, 'countries': countries, 'mode': mode,
         'white_presets': white_presets, 'black_presets': black_presets, 'other_presets': other_presets,
         'print_presets': print_presets, 'pod_templates': pod_templates,
-        'white_print': white_print, 'black_print': black_print, 'other_print': other_print,
     })
 
 
@@ -1599,6 +1707,31 @@ def _build_product_prompt(template, category, background):
         f'{product_only}'
     )
 
+def _run_pod_generation_batch(jobs, max_workers=None, batch_sleep=None):
+    """POD 批量生成 — 小并发执行，避免 ComfyUI 过载"""
+    if max_workers is None:
+        max_workers = max(1, min(int(getattr(settings, 'POD_BATCH_CONCURRENCY', 2)), 8))
+    if batch_sleep is None:
+        batch_sleep = getattr(settings, 'POD_BATCH_SLEEP', 1)
+
+    total = len(jobs)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map = {
+            executor.submit(_run_pod_generation, product_id, print_preset_id): (idx, product_id)
+            for idx, (product_id, print_preset_id) in enumerate(jobs, start=1)
+        }
+        for future in as_completed(future_map):
+            idx, product_id = future_map[future]
+            try:
+                future.result()
+                print(f'POD batch progress: {idx}/{total} product_id={product_id} done')
+            except Exception as e:
+                Product.objects.filter(id=product_id).update(
+                    status='failed', error_message=str(e)[:500])
+                print(f'POD batch progress: {idx}/{total} product_id={product_id} failed: {e}')
+            time.sleep(batch_sleep)
+
+
 def _run_pod_generation(product_id, print_preset_id):
     """POD 模式: 生成印花 → 去背景 → 合成到模板 → 保存 SKU"""
     if str(PROJECT_ROOT) not in sys.path:
@@ -1606,6 +1739,7 @@ def _run_pod_generation(product_id, print_preset_id):
 
     product = Product.objects.select_related('template', 'country').get(id=product_id)
     pp = PrintDesignPreset.objects.get(id=print_preset_id)
+    Product.objects.filter(id=product_id).update(status='processing', error_message='')
     template = product.template
 
     if not template or not template.is_pod_template:
@@ -1655,35 +1789,33 @@ def _run_pod_generation(product_id, print_preset_id):
     product.print_design = print_design
     product.save()
 
-    # Step 4: 去背景
+    # Step 4: 保存透明印花（尝试单独去背景，失败不阻塞）
     try:
         bg_result = provider.remove_print_background(print_image)
-        transparent = bg_result.images[0] if bg_result.images else print_image
-        if bg_result.metadata.get('warning'):
-            print(f'  WARNING: {bg_result.metadata["warning"]}')
-    except Exception:
-        transparent = print_image
+        if bg_result and bg_result.images:
+            transparent = bg_result.images[0]
+            buf2 = io.BytesIO()
+            transparent.save(buf2, format='PNG')
+            buf2.seek(0)
+            print_design.transparent_image.save(f'p{product_id}_print_trans.png', ContentFile(buf2.getvalue()), save=True)
+    except Exception as e:
+        print(f'  RMBG separate pass failed (will use in-composite RMBG): {e}')
 
-    buf2 = io.BytesIO()
-    transparent.save(buf2, format='PNG')
-    buf2.seek(0)
-    print_design.transparent_image.save(f'p{product_id}_print_trans.png', ContentFile(buf2.getvalue()), save=True)
-
-    # Step 5: 合成到模板
+    # Step 5: 合成到模板（composite_pod_image 内部做 RMBG + resize + composite with real mask）
     try:
         template_img = Image.open(template.image.path)
-        # Resize print to match print area
         composite_result = provider.composite_pod_image(
-            template_img, transparent,
+            template_img, print_image,
             x=template.print_area_x, y=template.print_area_y,
             width=template.print_area_width, height=template.print_area_height,
+            scale=float(getattr(settings, 'POD_PRINT_SCALE', 1.15)),
         )
-        if not composite_result.images:
+        if not composite_result or not composite_result.images:
             Product.objects.filter(id=product_id).update(status='failed', error_message='Composite returned no image')
             return
         final_image = composite_result.images[0]
     except Exception as e:
-        Product.objects.filter(id=product_id).update(status='failed', error_message=f'Composite failed: {str(e)[:200]}')
+        Product.objects.filter(id=product_id).update(status='failed', error_message=f'Composite failed: {str(e)[:300]}')
         return
 
     # Step 6: 保存最终 SKU
@@ -1694,19 +1826,89 @@ def _run_pod_generation(product_id, print_preset_id):
     sku = ProductSKU.objects.create(product=product)
     sku.mockup_image.save(f'p{product_id}_pod.jpg', ContentFile(buf3.getvalue()), save=True)
 
-    Product.objects.filter(id=product_id).update(status='completed', seed=base_seed)
+    # Step 7: 生成标题和描述
+    try:
+        _generate_text_v2(product_id)
+        Product.objects.filter(id=product_id).update(status='completed', seed=base_seed)
+    except Exception as e:
+        import traceback
+        Product.objects.filter(id=product_id).update(status='text_pending', seed=base_seed, error_message=str(e)[:500])
+        print(f'POD text gen failed for {product_id}: {e}\n{traceback.format_exc()}')
+        return
     print(f'POD Product#{product_id} completed')
+
+
+def _run_source_image_text_generation(product_id):
+    """source_image 产品文案生成 + 状态更新"""
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    try:
+        _generate_text_v2(product_id)
+        Product.objects.filter(id=product_id).update(status='completed', error_message='')
+    except Exception as e:
+        import traceback
+        Product.objects.filter(id=product_id).update(status='text_pending', error_message=str(e)[:500])
+        print(f'Source image text gen failed for {product_id}: {e}\n{traceback.format_exc()}')
+
+
+def _summarize_pod_print_for_text(print_design) -> str:
+    """从 PrintDesign 提取干净的描述用于文案生成"""
+    if not print_design:
+        return 'stylish print design'
+    parts = []
+    meta = print_design.variation_metadata or {}
+    if meta.get('theme'):
+        parts.append(meta['theme'])
+    if meta.get('style'):
+        parts.append(meta['style'])
+    if meta.get('elements'):
+        parts.append(meta['elements'])
+    if meta.get('palette'):
+        parts.append(meta['palette'])
+    if not parts:
+        # Fallback: first 150 chars of prompt (excluding system constraints)
+        prompt = print_design.prompt or ''
+        parts.append(prompt[:200])
+    return ', '.join(parts)
+
+
+def _clean_generated_title(text: str) -> str:
+    """清洗 AI 生成的标题 — 去掉 Markdown 标记和前导标签"""
+    if not text:
+        return ''
+    text = text.replace('**', '').replace('__', '')
+    text = re.sub(r'^\s*(Title|标题|Judul)\s*[:：]\s*', '', text, flags=re.IGNORECASE)
+    text = text.strip().strip('"''"')
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip() or 'Trendy Graphic T-Shirt'
+
+
+def _clean_generated_description(text: str) -> str:
+    """清洗 AI 生成的描述"""
+    if not text:
+        return ''
+    text = text.replace('**', '').replace('__', '')
+    return text.strip()
 
 
 def _generate_text_v2(product_id):
     """用 DeepSeek 生成商品标题和描述"""
     from apps.generation.deepseek import DeepSeekProvider
     from ai.prompts.loader import build_text_prompt
-    product = Product.objects.select_related('country', 'category', 'prompt_preset').get(id=product_id)
+    product = Product.objects.select_related(
+        'country', 'category', 'prompt_preset',
+        'print_design', 'print_design__preset',
+    ).get(id=product_id)
     language_map = {'ID': 'id', 'TH': 'th'}
     language = language_map.get(product.country.code, 'id')
-    # V7 preset mode or legacy category mode
-    if product.prompt_preset:
+    # POD mode uses print_design summary, direct mode uses prompt_preset/category
+    if product.generation_mode == 'source_image':
+        asset = product.source_assets.first()
+        color_name = 'black' if (asset and asset.color == 'black') else 'white'
+        desc = f'{color_name} t-shirt with trendy graphic print'
+    elif product.generation_mode == 'pod' and product.print_design:
+        desc = _summarize_pod_print_for_text(product.print_design)
+    elif product.prompt_preset:
         desc = product.prompt_preset.content[:100]
     elif product.category and product.category.print_prompt:
         desc = product.category.print_prompt[:100]
@@ -1715,9 +1917,149 @@ def _generate_text_v2(product_id):
     prompt = build_text_prompt(language=language, print_description=desc)
     provider = DeepSeekProvider()
     result = provider.generate_text(prompt, language=language)
-    product.title = result.title
-    product.description = result.description
+    product.title = _clean_generated_title(result.title)
+    product.description = _clean_generated_description(result.description)
     product.save()
+
+# ============================================================
+# Image Asset Library — 图片素材库
+# ============================================================
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
+
+@staff_required
+def image_asset_list(request):
+    color = request.GET.get('color', '')
+    assets = ImageAsset.objects.filter(is_active=True).order_by('-created_at')
+    if color in ('black', 'white'):
+        assets = assets.filter(color=color)
+    return render(request, 'dashboard/image_asset_list.html', {
+        'assets': assets, 'selected_color': color, 'countries': Country.objects.all(),
+    })
+
+@staff_required
+def image_asset_upload(request):
+    if request.method == 'POST':
+        images = request.FILES.getlist('images')
+        color = request.POST.get('color', 'white')
+        if not images:
+            messages.error(request, '请选择图片文件或文件夹')
+            return redirect('image_asset_upload')
+
+        imported, skipped_non_image, skipped_dup = 0, 0, 0
+        seen_hashes = set()
+
+        for f in images:
+            if not f.size:
+                continue
+            ext = Path(f.name).suffix.lower()
+            if ext not in IMAGE_EXTENSIONS:
+                skipped_non_image += 1
+                continue
+
+            # SHA256 content-based dedup
+            import hashlib
+            data = f.read()
+            file_hash = hashlib.sha256(data).hexdigest()
+            f.seek(0)
+
+            # Same-batch dedup
+            hash_key = (file_hash, color)
+            if hash_key in seen_hashes:
+                skipped_dup += 1
+                continue
+            seen_hashes.add(hash_key)
+
+            # Cross-batch dedup
+            if ImageAsset.objects.filter(file_hash=file_hash, color=color).exists():
+                skipped_dup += 1
+                continue
+
+            orig_name = Path(f.name).name
+            src_folder = str(Path(f.name).parent) if '/' in f.name or '\\' in f.name else ''
+
+            ImageAsset.objects.create(
+                image=f, color=color,
+                original_filename=orig_name,
+                source_folder=src_folder,
+                file_hash=file_hash,
+            )
+            imported += 1
+
+        messages.success(request,
+            f'已导入 {imported} 张，跳过 {skipped_dup} 个重复图片，跳过 {skipped_non_image} 个非图片文件')
+        return redirect('image_asset_list')
+
+    return render(request, 'dashboard/image_asset_upload.html', {})
+
+@staff_required
+def image_asset_create_products(request):
+    if request.method != 'POST':
+        return redirect('image_asset_list')
+
+    ids = request.POST.getlist('ids')
+    ids = [int(i) for i in ids if i.isdigit()]
+    country_code = request.POST.get('country', '')
+    if not ids:
+        messages.error(request, '请先选择素材')
+        return redirect('image_asset_list')
+    if not country_code:
+        messages.error(request, '请选择国家')
+        return redirect('image_asset_list')
+
+    try:
+        country = Country.objects.get(code=country_code)
+    except Country.DoesNotExist:
+        messages.error(request, '无效的国家代码')
+        return redirect('image_asset_list')
+
+    created, skipped = 0, 0
+    for aid in ids:
+        try:
+            asset = ImageAsset.objects.get(id=aid, is_active=True)
+        except ImageAsset.DoesNotExist:
+            continue
+        if asset.created_product:
+            skipped += 1
+            continue
+
+        product = Product.objects.create(
+            country=country, generation_mode='source_image',
+            size_info='XS,S,M,L,XL,XXL,3XL,4XL', status='processing',
+        )
+        sku_name = 'Black' if asset.color == 'black' else 'White'
+        sku = ProductSKU.objects.create(product=product, sku_name=sku_name)
+
+        # Copy image to SKU
+        buf = io.BytesIO(asset.image.read())
+        sku.mockup_image.save(f'asset_{asset.id}_{asset.original_filename}', ContentFile(buf.getvalue()), save=True)
+
+        asset.created_product = product
+        asset.save()
+        created += 1
+
+        # Generate text in background with status wrapper
+        threading.Thread(target=_run_source_image_text_generation, args=(product.id,), daemon=True).start()
+
+    messages.success(request, f'已创建 {created} 个产品，跳过 {skipped} 个已生成素材')
+    return redirect('product_list')
+
+@staff_required
+def image_asset_delete(request, aid):
+    asset = get_object_or_404(ImageAsset, id=aid)
+    asset.is_active = False
+    asset.save()
+    messages.success(request, f'已停用「{asset.original_filename}」')
+    return redirect('image_asset_list')
+
+@staff_required
+def image_asset_batch_delete(request):
+    ids = request.GET.getlist('ids')
+    ids = [int(i) for i in ids if i.isdigit()]
+    if ids:
+        ImageAsset.objects.filter(id__in=ids).update(is_active=False)
+        messages.success(request, f'已停用 {len(ids)} 个素材')
+    return redirect('image_asset_list')
+
 
 # Import at bottom to avoid circular
 from apps.generation.comfyui import ComfyUIProvider

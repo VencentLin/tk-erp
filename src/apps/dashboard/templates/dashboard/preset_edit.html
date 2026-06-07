@@ -1,9 +1,17 @@
 {% extends "dashboard/base.html" %}
 {% block title %}编辑预设 - TK-ERP{% endblock %}
 {% block content %}
-<div class="topbar"><h5>✏️ 编辑: {{ preset.name }}</h5><a href="{% url 'preset_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
+<div class="topbar"><h5>✏️ 编辑: {{ preset.name }}
+    {% if preset_type == 'print' %}<span class="badge bg-success">🎨 印花提示词</span>
+    {% else %}<span class="badge bg-primary">🤖 产品图提示词</span>{% endif %}
+</h5><a href="{% url 'preset_list' %}?type={{ preset_type }}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
 
 <div class="row justify-content-center"><div class="col-lg-8">
+    {% if preset_type == 'print' %}
+    <div class="alert alert-success small mb-3"><strong>印花提示词说明：</strong>内容应只描述平面图案（配色、构图、元素、质感）。<strong>不应</strong>包含 T 恤、衣架、衣柜、商品图、场景等描述。可含 <code>## VARIATION POOL</code> 段定义随机变体池。</div>
+    {% else %}
+    <div class="alert alert-primary small mb-3"><strong>产品图提示词说明：</strong>内容可包含 T 恤描述、印花设计、场景/灯光等完整商品图 prompt。系统生成时会自动附加颜色锁定、位置锁定、平面印花锁等兜底。</div>
+    {% endif %}
     <form method="post">{% csrf_token %}
         <div class="card border-0 shadow-sm" style="border-radius:12px;">
             <div class="card-body">

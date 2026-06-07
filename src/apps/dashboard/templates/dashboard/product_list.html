@@ -43,13 +43,14 @@
                 </td>
                 <td><strong>{{ p.title|default:'待生成'|truncatechars:40 }}</strong></td>
                 <td>
-                    {% if p.prompt_preset %}<span class="badge bg-primary text-white">{{ p.prompt_preset.name }}</span>
+                    {% if p.generation_mode == 'source_image' %}<span class="badge bg-info text-white">图片素材库</span>
+                    {% elif p.prompt_preset %}<span class="badge bg-primary text-white">{{ p.prompt_preset.name }}</span>
                     {% elif p.category %}<span class="badge bg-light text-dark">{{ p.category.name }}</span>
                     {% else %}<span class="badge bg-light text-dark">-</span>{% endif %}
                 </td>
                 <td>
                     {% for sku in p.skus.all %}
-                    <span class="badge bg-light text-dark me-1">{% if sku.template %}{{ sku.template.get_color_display }}{% else %}SKU#{{ sku.id }}{% endif %}</span>
+                    <span class="badge bg-light text-dark me-1">{% if sku.sku_name %}{{ sku.sku_name }}{% elif sku.template %}{{ sku.template.get_color_display }}{% else %}SKU#{{ sku.id }}{% endif %}</span>
                     {% empty %}
                     <span class="badge bg-light text-dark">-</span>
                     {% endfor %}
@@ -70,6 +71,13 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if has_active_products %}
+<div class="alert alert-info alert-dismissible fade show small py-1 mb-0" role="alert">
+    有产品正在生成或排队中，页面每5秒自动刷新。
+    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+</div>
+<script>setTimeout(function(){window.location.reload()}, 5000);</script>
+{% endif %}
 <script>
 function filter() {
     const c = document.querySelector('select[name="country"]').value;

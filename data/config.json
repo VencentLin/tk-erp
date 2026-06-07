@@ -1,1 +1,1 @@
-{"comfyui_model": "juggernautXL_ragnarokBy.safetensors", "print_checkpoint": "sd_xl_turbo_1.0_bf16.safetensors", "print_lora_name": "", "print_lora_strength_model": 0.8, "print_lora_strength_clip": 0.8}
+{"comfyui_model": "juggernautXL_ragnarokBy.safetensors", "print_checkpoint": "juggernautXL_ragnarokBy.safetensors", "print_lora_name": "LogoRedmondV2-Logo-LogoRedmAF.safetensors", "print_lora_strength_model": 0.75, "print_lora_strength_clip": 0.75, "print_lora_trigger": "logo, logoredmaf"}

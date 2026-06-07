@@ -1,15 +1,27 @@
 {% extends "dashboard/base.html" %}
-{% block title %}上传分类 - TK-ERP{% endblock %}
+{% block title %}上传提示词 - TK-ERP{% endblock %}
 {% block content %}
-<div class="topbar"><h5>📤 上传分类 .md (V7)</h5><a href="{% url 'preset_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
+<div class="topbar"><h5>📤 上传提示词 .md</h5><a href="{% url 'preset_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
 
 <div class="row justify-content-center"><div class="col-lg-8">
     <form method="post" enctype="multipart/form-data">{% csrf_token %}
         <div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
             <div class="card-body p-5 text-center" style="border:3px dashed #667eea;border-radius:12px;background:#f8f9ff;">
                 <i class="bi bi-file-text" style="font-size:64px;color:#667eea;"></i>
-                <h5 class="mt-3">上传分类 .md 文件</h5>
-                <p class="text-muted">每个 .md 文件是一个完整的商品图 prompt，包含 SUBJECT / PRINT / CONTENT / SCENE / NEGATIVE</p>
+                <h5 class="mt-3">上传 .md 提示词文件</h5>
+
+                {# Type selector #}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">选择提示词类型：</label>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="preset_type" value="product" id="typeProduct" checked>
+                        <label class="btn btn-outline-primary" for="typeProduct" onclick="updateHint('product')">🤖 产品图提示词<br><small>用于 AI 直出商品图</small></label>
+                        <input type="radio" class="btn-check" name="preset_type" value="print" id="typePrint">
+                        <label class="btn btn-outline-success" for="typePrint" onclick="updateHint('print')">🎨 印花提示词<br><small>用于 POD 贴图模式</small></label>
+                    </div>
+                </div>
+
+                <p class="text-muted small" id="typeHint">产品图 prompt 可包含 T 恤、衣架、衣柜、商品图场景描述。印花 prompt 只描述平面图案，不描述 T 恤/衣架/场景。</p>
                 <input type="file" name="md_files" multiple accept=".md" class="form-control mb-3" style="max-width:400px;margin:0 auto;">
                 <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5"><i class="bi bi-upload"></i> 导入</button>
             </div>
@@ -17,44 +29,25 @@
     </form>
 
     <div class="card border-0 shadow-sm" style="border-radius:12px;">
-        <div class="card-header"><h6 class="mb-0">📋 V7 .md 格式规范</h6></div>
+        <div class="card-header"><h6 class="mb-0">📋 .md 格式规范</h6></div>
         <div class="card-body">
-            <p class="small text-muted">系统自动解析各段，NEGATIVE 单独提取为负向 prompt，其余拼接后去掉 ## 标题发给 SDXL。</p>
-            <pre style="font-size:11px;background:#f8f9fa;padding:12px;border-radius:6px;">## SUBJECT
-Generate a realistic ecommerce apparel product photo.
-The main subject is a white cotton t-shirt.
-The t-shirt occupies most of the image.
-
-## PRINT
-A graphic print is physically printed on the garment.
-The artwork is attached to the fabric.
-The artwork follows fabric folds.
-The artwork is not floating.
-
-## CATEGORY CONTENT
-The artwork contains:
-cute bear,
-cute rabbit,
-kawaii illustration,
-pastel color palette
-
-## SCENE
-Wooden hanger.
-Closet background.
-Warm indoor lighting.
-Taobao apparel product photography.
-
-## NEGATIVE
-standalone artwork
-floating artwork
-poster
-canvas
-human
-person
-model
-watermark</pre>
-            <p class="small text-muted">文件名自动成为分类名称（如 <code>cute_animal.md</code> → 「cute animal」）。</p>
+            <p class="small text-muted">系统自动解析各段，NEGATIVE 单独提取为负向 prompt，其余拼接后去掉 ## 标题。</p>
+            <p class="small"><strong>产品图提示词</strong>：可包含 SUBJECT（T恤描述）、PRINT（印花）、SCENE（场景）</p>
+            <p class="small"><strong>印花提示词</strong>：只包含 PRINT DESIGN（平面图案），可带 VARIATION POOL 段</p>
         </div>
     </div>
 </div></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateHint(type) {
+    const hint = document.getElementById('typeHint');
+    if (type === 'print') {
+        hint.textContent = '印花 prompt 只描述平面图案（配色/构图/元素/质感），不描述 T 恤、衣架、衣柜、商品图场景。';
+    } else {
+        hint.textContent = '产品图 prompt 可包含 T 恤、衣架、衣柜、商品图场景描述。系统会自动标准化高风险词。';
+    }
+}
+</script>
 {% endblock %}

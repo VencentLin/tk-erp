@@ -52,4 +52,11 @@ urlpatterns = [
     path('products/<int:pid>/edit/', views.product_edit, name='product_edit'),
     path('products/<int:pid>/delete/', views.product_delete, name='product_delete'),
     path('products/<int:pid>/regenerate/', views.product_regenerate, name='product_regenerate'),
+
+    # Image Assets
+    path('image-assets/', views.image_asset_list, name='image_asset_list'),
+    path('image-assets/upload/', views.image_asset_upload, name='image_asset_upload'),
+    path('image-assets/create-products/', views.image_asset_create_products, name='image_asset_create_products'),
+    path('image-assets/<int:aid>/delete/', views.image_asset_delete, name='image_asset_delete'),
+    path('image-assets/batch-delete/', views.image_asset_batch_delete, name='image_asset_batch_delete'),
 ]

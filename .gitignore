@@ -29,3 +29,5 @@ media/
 
 # Static
 staticfiles/
+.hf_cache/
+static/

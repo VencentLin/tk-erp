@@ -11,11 +11,13 @@ def export_products_csv(product_ids):
     writer.writerow(['Product ID', 'Title', 'Description', 'Size', 'Country', 'Category', 'SKU Colors', 'Status', 'Created At'])
     for p in products:
         sku_colors = ', '.join(
-            (s.template.get_color_display() if s.template else f'SKU#{s.id}')
+            (s.sku_name if s.sku_name else (s.template.get_color_display() if s.template else f'SKU#{s.id}'))
             for s in p.skus.all()
         )
-        # V7: category fallback — prompt_preset > category > '-'
-        if p.prompt_preset:
+        # V7: category fallback — source_image > prompt_preset > category > '-'
+        if p.generation_mode == 'source_image':
+            category_name = '图片素材库'
+        elif p.prompt_preset:
             category_name = p.prompt_preset.name
         elif p.category:
             category_name = p.category.name

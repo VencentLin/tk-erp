@@ -3,20 +3,28 @@
 {% block content %}
 <div class="topbar"><h5>📝 提示词预设</h5>
     <div>
+        <a href="?type={{ selected_type }}{% if selected_color %}&color={{ selected_color }}{% endif %}&sync=1" class="btn btn-outline-success rounded-pill"><i class="bi bi-arrow-repeat"></i> 同步提示词</a>
         <a href="{% url 'preset_upload' %}" class="btn btn-primary rounded-pill"><i class="bi bi-upload"></i> 上传 .md 文件</a>
         <button class="btn btn-danger rounded-pill" onclick="deleteSelected()"><i class="bi bi-trash"></i> 批量删除</button>
     </div>
 </div>
 
 <div class="mb-3">
-    <span class="text-muted small me-2">共 {{ presets|length }} 个预设</span>
-    <div class="btn-group btn-group-sm me-2" role="group">
-        <a href="?color=" class="btn btn-{% if not selected_color %}dark{% else %}outline-secondary{% endif %}">全部</a>
-        <a href="?color=white" class="btn btn-{% if selected_color == 'white' %}dark{% else %}outline-secondary{% endif %}">⬜ 白色 T 恤</a>
-        <a href="?color=black" class="btn btn-{% if selected_color == 'black' %}dark{% else %}outline-secondary{% endif %}">⬛ 黑色 T 恤</a>
-        <a href="?color=other" class="btn btn-{% if selected_color == 'other' %}dark{% else %}outline-secondary{% endif %}">其他</a>
+    {# Type tabs #}
+    <div class="btn-group btn-group-sm mb-2" role="group">
+        <a href="?type=product{% if selected_color %}&color={{ selected_color }}{% endif %}" class="btn btn-{% if selected_type == 'product' %}primary{% else %}outline-secondary{% endif %}">🤖 产品图提示词</a>
+        <a href="?type=print{% if selected_color %}&color={{ selected_color }}{% endif %}" class="btn btn-{% if selected_type == 'print' %}primary{% else %}outline-secondary{% endif %}">🎨 印花提示词</a>
+        <a href="?type=all{% if selected_color %}&color={{ selected_color }}{% endif %}" class="btn btn-{% if selected_type == 'all' %}primary{% else %}outline-secondary{% endif %}">全部</a>
     </div>
-    <label class="small"><input type="checkbox" id="selectAll" onchange="document.querySelectorAll('.preset-check').forEach(cb=>cb.checked=this.checked)"> 全选</label>
+    {# Color filter #}
+    <div class="btn-group btn-group-sm ms-2" role="group">
+        <a href="?type={{ selected_type }}{% if selected_color %}&color={% endif %}" class="btn btn-{% if not selected_color %}dark{% else %}outline-secondary{% endif %}">全部颜色</a>
+        <a href="?type={{ selected_type }}&color=white" class="btn btn-{% if selected_color == 'white' %}dark{% else %}outline-secondary{% endif %}">⬜ 白T</a>
+        <a href="?type={{ selected_type }}&color=black" class="btn btn-{% if selected_color == 'black' %}dark{% else %}outline-secondary{% endif %}">⬛ 黑T</a>
+        <a href="?type={{ selected_type }}&color=other" class="btn btn-{% if selected_color == 'other' %}dark{% else %}outline-secondary{% endif %}">其他</a>
+    </div>
+    <span class="text-muted small ms-2">共 {{ presets|length }} 个</span>
+    <label class="ms-2 small"><input type="checkbox" id="selectAll" onchange="document.querySelectorAll('.preset-check').forEach(cb=>cb.checked=this.checked)"> 全选</label>
 </div>
 
 <div class="row g-3">
@@ -26,6 +34,8 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <h6 class="mb-0">{{ p.name }}{% if not p.is_active %} <span class="badge bg-secondary">已停用</span>{% endif %}
+                        {% if p.preset_type == 'print' %}<span class="badge bg-success">🎨 印花</span>
+                        {% else %}<span class="badge bg-primary">🤖 产品图</span>{% endif %}
                         {% if p.shirt_color == 'white' %}<span class="badge bg-light text-dark border">⬜ 白T</span>
                         {% elif p.shirt_color == 'black' %}<span class="badge bg-dark">⬛ 黑T</span>
                         {% else %}<span class="badge bg-secondary">其他</span>{% endif %}
@@ -35,8 +45,8 @@
                 <pre style="font-size:11px;max-height:120px;overflow-y:auto;white-space:pre-wrap;background:#f8f9fa;padding:8px;border-radius:6px;">{{ p.content|truncatechars:200 }}</pre>
             </div>
             <div class="card-footer bg-transparent border-0 d-flex gap-1">
-                <a href="{% url 'preset_edit' p.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
-                <a href="{% url 'preset_delete' p.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除「{{ p.name }}」？')"><i class="bi bi-trash"></i></a>
+                <a href="{% url 'preset_edit' p.id %}?type={{ p.preset_type }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> 编辑</a>
+                <a href="{% url 'preset_delete' p.id %}?type={{ p.preset_type }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除「{{ p.name }}」？')"><i class="bi bi-trash"></i></a>
             </div>
         </div>
     </div>
@@ -56,7 +66,7 @@ function deleteSelected() {
     const ids = Array.from(document.querySelectorAll('.preset-check:checked')).map(cb => cb.value);
     if (ids.length === 0) { alert('请先选择预设'); return; }
     if (!confirm('确定删除 ' + ids.length + ' 个预设？有关联产品的将被跳过。')) return;
-    window.location = '{% url "preset_batch_delete" %}?ids=' + ids.join('&ids=');
+    window.location = '{% url "preset_batch_delete" %}?type={{ selected_type }}&ids=' + ids.join('&ids=');
 }
 </script>
 {% endblock %}

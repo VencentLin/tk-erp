@@ -238,27 +238,28 @@ def sync_print_presets_from_disk(prompts_dir: Path = None) -> dict:
     result = {'created': 0, 'updated': 0, 'deactivated': 0, 'errors': []}
     sync_sources = {}
 
-    for color_dir_name in ('white', 'black'):
-        color_path = prompts_dir / color_dir_name
-        if not color_path.is_dir():
+    for md_file in sorted(prompts_dir.rglob('*.md')):
+        # Skip files in white/ or black/ subdirs (those are for product prompts)
+        rel_to_prompts = md_file.relative_to(prompts_dir)
+        parts = rel_to_prompts.parts
+        if len(parts) > 1 and parts[0] in ('white', 'black'):
+            # Still include — POD is color-agnostic now
+            pass
+        try:
+            content = md_file.read_text(encoding='utf-8')
+        except Exception as e:
+            result['errors'].append(f'Read error {md_file}: {e}')
             continue
-        for md_file in sorted(color_path.glob('*.md')):
-            try:
-                content = md_file.read_text(encoding='utf-8')
-            except Exception as e:
-                result['errors'].append(f'Read error {md_file}: {e}')
-                continue
 
-            rel_path = md_file.relative_to(prompts_dir)
-            slug = str(rel_path.with_suffix('')).replace('\\', '/').replace('/', '-').replace(' ', '-').lower()
+        rel_path = md_file.relative_to(prompts_dir)
+        slug = str(rel_path.with_suffix('')).replace('\\', '/').replace('/', '-').replace(' ', '-').lower()
 
-            shirt_color = _detect_shirt_color(md_file.name, color_dir_name)
-            sync_sources[slug] = {
-                'path': md_file,
-                'content': content,
-                'shirt_color': shirt_color,
-                'name': md_file.stem.replace('-', ' ').replace('_', ' ').strip(),
-            }
+        sync_sources[slug] = {
+            'path': md_file,
+            'content': content,
+            'shirt_color': 'other',  # POD 印花不再区分颜色
+            'name': md_file.stem.replace('-', ' ').replace('_', ' ').strip(),
+        }
 
     # 解析 variation_pool 从 .md
     created_slugs = set()

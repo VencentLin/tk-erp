@@ -44,34 +44,37 @@
                     {% endif %}
                 </div>
 
-                {# 印花预设选择 — 按颜色分组 #}
-                <label class="form-label small fw-bold">📋 选择印花提示词</label>
-                <div style="max-height:280px;overflow-y:auto;">
+                {# POD 提示词选择模式 #}
+                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">提示词选择方式</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="print_preset_mode" value="manual" id="modeManual" checked onchange="togglePresetMode()">
+                        <label class="btn btn-outline-secondary" for="modeManual">手动选择</label>
+                        <input type="radio" class="btn-check" name="print_preset_mode" value="random" id="modeRandom" onchange="togglePresetMode()">
+                        <label class="btn btn-outline-secondary" for="modeRandom">🎲 随机提示词</label>
+                    </div>
+                </div>
 
-                {% if white_print %}
-                <div class="mb-2"><span class="badge bg-light text-dark border">⬜ 白色 T 恤印花</span></div>
-                {% for p in white_print %}
-                <div class="form-check mb-2 ms-2"><input class="form-check-input print-check" type="checkbox" name="print_preset" value="{{ p.id }}" id="pp_{{ p.id }}"><label class="form-check-label" for="pp_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
+                {# 印花预设选择 — 所有印花可用于任意模板 #}
+                <div id="manualPresetList">
+                <label class="form-label small fw-bold">📋 选择印花提示词 <span class="badge bg-info">适用于任意颜色模板</span></label>
+                <div style="max-height:220px;overflow-y:auto;">
+
+                {% for p in print_presets %}
+                <div class="form-check mb-2"><input class="form-check-input print-check" type="checkbox" name="print_preset" value="{{ p.id }}" id="pp_{{ p.id }}"><label class="form-check-label" for="pp_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
                 {% endfor %}
-                {% endif %}
 
-                {% if black_print %}
-                <div class="mb-2 mt-2"><span class="badge bg-dark">⬛ 黑色 T 恤印花</span></div>
-                {% for p in black_print %}
-                <div class="form-check mb-2 ms-2"><input class="form-check-input print-check" type="checkbox" name="print_preset" value="{{ p.id }}" id="pp_{{ p.id }}"><label class="form-check-label" for="pp_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
-                {% endfor %}
-                {% endif %}
-
-                {% if other_print %}
-                <div class="mb-2 mt-2"><span class="badge bg-secondary">其他印花</span></div>
-                {% for p in other_print %}
-                <div class="form-check mb-2 ms-2"><input class="form-check-input print-check" type="checkbox" name="print_preset" value="{{ p.id }}" id="pp_{{ p.id }}"><label class="form-check-label" for="pp_{{ p.id }}"><strong>{{ p.name }}</strong> <br><small class="text-muted">{{ p.content|truncatechars:80 }}</small></label></div>
-                {% endfor %}
-                {% endif %}
-
-                {% if not white_print and not black_print and not other_print %}
+                {% if not print_presets %}
                 <p class="text-muted">尚无印花预设，请运行 <code>python src\manage.py sync_print_prompts</code> 或在 <code>data/print_prompts/</code> 放入 .md 文件</p>
                 {% endif %}
+                </div>
+                </div>
+
+                <div id="randomPresetInfo" style="display:none;">
+                    <div class="alert alert-info small mb-0">
+                        🎲 系统将从 <strong>{{ print_presets|length }}</strong> 个印花提示词中随机选择。<br>
+                        数量 = 最终生成产品数。每个产品随机抽取不同提示词。
+                    </div>
                 </div>
             </div></div>
         </div>
@@ -130,10 +133,10 @@
         <div class="col-lg-3">
             <div class="card border-0 shadow-sm h-100" style="border-radius:12px;"><div class="card-body text-center">
                 <h6 class="mb-3">🔢 数量</h6>
-                <input type="number" name="count" value="1" min="1" max="10" class="form-control mb-3" style="width:80px;margin:0 auto;">
+                <input type="number" name="count" value="1" min="1" max="1000" class="form-control mb-3" style="width:80px;margin:0 auto;">
                 <button type="submit" class="btn btn-primary btn-lg rounded-pill w-100" onclick="return validateForm()"><i class="bi bi-stars"></i> 创建并生成</button>
-                <small class="text-muted mt-2 d-block">
-                    {% if mode == 'pod' %}每个印花分类 × 数量 = 总产品数{% else %}每个分类 × 数量 = 总产品数{% endif %}
+                <small class="text-muted mt-2 d-block" id="countHint">
+                    {% if mode == 'pod' %}每个选中印花 × 数量 = 总产品数{% else %}每个分类 × 数量 = 总产品数{% endif %}
                 </small>
             </div></div>
         </div>
@@ -144,9 +147,21 @@
 
 {% block extra_js %}
 <script>
+function togglePresetMode() {
+    const isRandom = document.getElementById('modeRandom').checked;
+    document.getElementById('manualPresetList').style.display = isRandom ? 'none' : 'block';
+    document.getElementById('randomPresetInfo').style.display = isRandom ? 'block' : 'none';
+    document.getElementById('countHint').textContent = isRandom
+        ? '随机抽取提示词，数量 = 总产品数'
+        : '每个选中印花 × 数量 = 总产品数';
+}
 function validateForm() {
     {% if mode == 'pod' %}
-    const checked = document.querySelectorAll('.print-check:checked');
+    const isRandom = document.getElementById('modeRandom') && document.getElementById('modeRandom').checked;
+    if (!isRandom) {
+        const checked = document.querySelectorAll('.print-check:checked');
+        if (checked.length === 0) { alert('请至少选择一个印花提示词，或切换到随机模式'); return false; }
+    }
     const template = document.querySelector('select[name="template"]');
     if (!template || !template.value) { alert('请选择 POD 模板'); return false; }
     {% else %}

@@ -13,7 +13,7 @@
                 <img src="{{ template.image.url }}" style="max-width:100%; max-height:350px; border-radius:12px; display:block; margin:0 auto 20px;">
                 {% endif %}
                 <div class="mb-3"><label class="form-label">模板名称</label><input name="name" value="{{ template.name }}" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label">替换图片（上传后自动重新分析版型）</label><input type="file" name="image" accept="image/*" class="form-control"></div>
+                <div class="mb-3"><label class="form-label">替换图片（更换后需重新框选印花区域）</label><input type="file" name="image" accept="image/*" class="form-control"></div>
                 <div class="mb-3"><label class="form-label">颜色</label>
                     <select name="color" class="form-select">
                         {% for k, v in template.COLOR_CHOICES %}
@@ -34,7 +34,7 @@
                     <label class="form-label small">🎯 印花区域（在模板图上拖拽框选胸口印花区域）</label>
                     <div style="position:relative;display:inline-block;cursor:crosshair;border:1px solid #ddd;border-radius:8px;overflow:hidden;" id="canvasContainer">
                         {% if template.image %}
-                        <img id="templateImg" src="{{ template.image.url }}" style="max-width:100%;max-height:400px;display:block;" onload="initCanvas()">
+                        <img id="templateImg" src="{{ template.image.url }}" style="max-width:100%;max-height:400px;display:block;">
                         <canvas id="printAreaCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
                         {% else %}
                         <p class="text-muted p-3">请先上传模板图片</p>
@@ -46,7 +46,7 @@
                         <div class="col-3"><label class="form-label small">W</label><input type="number" name="print_area_width" id="paw" value="{{ template.print_area_width|default:'' }}" class="form-control form-control-sm" readonly></div>
                         <div class="col-3"><label class="form-label small">H</label><input type="number" name="print_area_height" id="pah" value="{{ template.print_area_height|default:'' }}" class="form-control form-control-sm" readonly></div>
                     </div>
-                    <small class="text-muted">在模板图上按住鼠标拖拽矩形框选胸口印花区域，坐标会自动换算为原图像素值</small>
+                    <small class="text-muted">按住鼠标拖拽框选胸口印花区域。坐标按<b>原图像素</b>保存（如模板 1024x1024，框选屏幕 200x200 区域，保存为约 512x512 原图坐标）。</small>
                 </div>
             </div>
             <div class="card-footer bg-transparent text-end"><button type="submit" class="btn btn-primary rounded-pill">保存修改</button></div>
@@ -59,58 +59,155 @@
 <script>
 function togglePOD() {
     document.getElementById('podArea').style.display = document.getElementById('isPOD').checked ? 'block' : 'none';
+    if (document.getElementById('isPOD').checked) {
+        setTimeout(syncCanvasSize, 100);
+    }
 }
 
+// --- Coordinate helpers ---
+function getImg() { return document.getElementById('templateImg'); }
+function getCanvas() { return document.getElementById('printAreaCanvas'); }
+
+function displayToNatural(displayX, displayY) {
+    var img = getImg();
+    if (!img) return {x: 0, y: 0};
+    var r = img.getBoundingClientRect();
+    return {
+        x: Math.round(displayX * img.naturalWidth / r.width),
+        y: Math.round(displayY * img.naturalHeight / r.height)
+    };
+}
+
+function naturalToDisplay(naturalX, naturalY) {
+    var img = getImg();
+    if (!img) return {x: 0, y: 0};
+    var r = img.getBoundingClientRect();
+    return {
+        x: naturalX * r.width / img.naturalWidth,
+        y: naturalY * r.height / img.naturalHeight
+    };
+}
+
+function getCanvasPoint(e) {
+    var canvas = getCanvas();
+    if (!canvas) return {x: 0, y: 0};
+    var r = canvas.getBoundingClientRect();
+    return {
+        x: Math.max(0, Math.min(e.clientX - r.left, r.width)),
+        y: Math.max(0, Math.min(e.clientY - r.top, r.height))
+    };
+}
+
+// --- Canvas sync ---
+function syncCanvasSize() {
+    var img = getImg();
+    var canvas = getCanvas();
+    if (!img || !canvas) return;
+    var r = img.getBoundingClientRect();
+    var w = Math.round(r.width);
+    var h = Math.round(r.height);
+    if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+    }
+    drawExistingSelection();
+}
+
+function drawExistingSelection() {
+    var canvas = getCanvas();
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    var dx = parseInt(document.getElementById('pax').value);
+    var dy = parseInt(document.getElementById('pay').value);
+    var dw = parseInt(document.getElementById('paw').value);
+    var dh = parseInt(document.getElementById('pah').value);
+    if (isNaN(dx) || isNaN(dy) || isNaN(dw) || isNaN(dh) || dw < 1 || dh < 1) return;
+
+    var p1 = naturalToDisplay(dx, dy);
+    var p2 = naturalToDisplay(dx + dw, dy + dh);
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+}
+
+// --- Drag state ---
+var dragging = false, dragStart = null, dragCurrent = null;
+
+function drawDragRect() {
+    if (!dragStart || !dragCurrent) return;
+    var canvas = getCanvas();
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawExistingSelection(); // show old selection underneath
+    var x = Math.min(dragStart.x, dragCurrent.x);
+    var y = Math.min(dragStart.y, dragCurrent.y);
+    var w = Math.abs(dragCurrent.x - dragStart.x);
+    var h = Math.abs(dragCurrent.y - dragStart.y);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([]);
+    ctx.strokeRect(x, y, w, h);
+}
+
+function finishSelection() {
+    if (!dragging || !dragStart || !dragCurrent) { dragging = false; return; }
+    dragging = false;
+    var x = Math.min(dragStart.x, dragCurrent.x);
+    var y = Math.min(dragStart.y, dragCurrent.y);
+    var w = Math.abs(dragCurrent.x - dragStart.x);
+    var h = Math.abs(dragCurrent.y - dragStart.y);
+    if (w < 10 || h < 10) {
+        drawExistingSelection();
+        return;
+    }
+    var n1 = displayToNatural(x, y);
+    var n2 = displayToNatural(x + w, y + h);
+    document.getElementById('pax').value = n1.x;
+    document.getElementById('pay').value = n1.y;
+    document.getElementById('paw').value = n2.x - n1.x;
+    document.getElementById('pah').value = n2.y - n1.y;
+    drawExistingSelection();
+}
+
+// --- Init ---
 document.addEventListener('DOMContentLoaded', function() {
-    var canvas = document.getElementById('printAreaCanvas');
+    var canvas = getCanvas();
     if (!canvas) return;
 
-    var startX = 0, startY = 0;
+    var img = getImg();
+    if (img) {
+        if (img.complete) syncCanvasSize();
+        else img.addEventListener('load', syncCanvasSize);
+    }
 
     canvas.addEventListener('mousedown', function(e) {
-        var img = document.getElementById('templateImg');
-        if (!img) return;
-        var displayW = img.clientWidth;
-        var naturalW = img.naturalWidth;
-        var scaleX = naturalW / displayW;
-        var rect = canvas.getBoundingClientRect();
-        startX = (e.clientX - rect.left) * scaleX;
-        startY = (e.clientY - rect.top) * (img.naturalHeight / img.clientHeight);
+        dragging = true;
+        dragStart = getCanvasPoint(e);
+        dragCurrent = dragStart;
+        drawDragRect();
     });
 
-    canvas.addEventListener('mouseup', function(e) {
-        var img = document.getElementById('templateImg');
-        if (!img) return;
-        var displayW = img.clientWidth;
-        var displayH = img.clientHeight;
-        var naturalW = img.naturalWidth;
-        var naturalH = img.naturalHeight;
-        var scaleX = naturalW / displayW;
-        var scaleY = naturalH / displayH;
+    canvas.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        dragCurrent = getCanvasPoint(e);
+        drawDragRect();
+    });
 
-        var rect = canvas.getBoundingClientRect();
-        var endX = (e.clientX - rect.left) * scaleX;
-        var endY = (e.clientY - rect.top) * scaleY;
+    canvas.addEventListener('mouseup', finishSelection);
+    canvas.addEventListener('mouseleave', function(e) {
+        if (dragging) finishSelection();
+    });
 
-        var x = Math.round(Math.min(startX, endX));
-        var y = Math.round(Math.min(startY, endY));
-        var w = Math.round(Math.abs(endX - startX));
-        var h = Math.round(Math.abs(endY - startY));
-
-        if (w < 10 || h < 10) return;
-
-        document.getElementById('pax').value = x;
-        document.getElementById('pay').value = y;
-        document.getElementById('paw').value = w;
-        document.getElementById('pah').value = h;
-
-        var canvasEl = document.getElementById('printAreaCanvas');
-        var ctx = canvasEl.getContext('2d');
-        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-        ctx.strokeStyle = '#10b981';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 3]);
-        ctx.strokeRect(x / scaleX, y / scaleY, w / scaleX, h / scaleY);
+    window.addEventListener('resize', function() {
+        syncCanvasSize();
+        if (dragging) drawDragRect();
+        else drawExistingSelection();
     });
 });
 </script>

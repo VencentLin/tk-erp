@@ -1,0 +1,85 @@
+{% extends "dashboard/base.html" %}
+{% block title %}上传素材 - TK-ERP{% endblock %}
+{% block content %}
+<div class="topbar"><h5>📤 上传图片素材</h5><a href="{% url 'image_asset_list' %}" class="btn btn-outline-secondary rounded-pill">← 返回</a></div>
+
+<div class="row justify-content-center"><div class="col-lg-8">
+    <form method="post" enctype="multipart/form-data">{% csrf_token %}
+        <div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+            <div class="card-body p-5 text-center" style="border:3px dashed #10b981;border-radius:12px;background:#f8f9ff;">
+
+                <i class="bi bi-images" style="font-size:64px;color:#10b981;"></i>
+                <h5 class="mt-3">上传图片素材</h5>
+
+                {# Step 1: Select color — card-style picker with clear visual distinction #}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold mb-2">1. 选择 T 恤颜色</label>
+                    <div class="d-flex justify-content-center gap-3">
+                        <label class="color-option color-white selected" id="colorWhiteLabel" onclick="selectColor('white')">
+                            <span class="swatch bg-white border"></span>
+                            <span>白色 T 恤</span>
+                            <i class="bi bi-check-circle-fill selected-icon text-primary"></i>
+                        </label>
+                        <label class="color-option color-black" id="colorBlackLabel" onclick="selectColor('black')">
+                            <span class="swatch bg-dark"></span>
+                            <span>黑色 T 恤</span>
+                            <i class="bi bi-check-circle-fill selected-icon text-success"></i>
+                        </label>
+                        <input type="hidden" name="color" value="white" id="colorInput">
+                    </div>
+                </div>
+
+                {# Step 2: Select folder or files #}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">2. 选择图片文件夹（或批量选择图片）</label>
+                    <input type="file" name="images" multiple webkitdirectory directory accept="image/*" class="form-control mb-2" style="max-width:400px;margin:0 auto;">
+                    <small class="text-muted">支持选择整个文件夹上传。只导入 .jpg/.jpeg/.png/.webp/.bmp 格式</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5"><i class="bi bi-upload"></i> 上传素材</button>
+            </div>
+        </div>
+    </form>
+</div></div>
+
+<script>
+function selectColor(color) {
+    document.getElementById('colorInput').value = color;
+    document.getElementById('colorWhiteLabel').classList.toggle('selected', color === 'white');
+    document.getElementById('colorBlackLabel').classList.toggle('selected', color === 'black');
+}
+</script>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.color-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 150px;
+    padding: 14px 18px;
+    border: 2px solid #d1d5db;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.color-white { background: #fff; color: #111827; }
+.color-black { background: #111827; color: #fff; }
+.color-option .swatch {
+    width: 20px; height: 20px;
+    border-radius: 4px; border: 1px solid #9ca3af; flex-shrink: 0;
+}
+.color-black .swatch { border-color: #6b7280; }
+.color-option .selected-icon { display: none; margin-left: auto; font-size: 18px; }
+.color-option.selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.18);
+}
+.color-option.selected .selected-icon { display: inline-block; }
+.color-white.selected { border-color: #2563eb; }
+.color-black.selected { border-color: #10b981; }
+</style>
+{% endblock %}
